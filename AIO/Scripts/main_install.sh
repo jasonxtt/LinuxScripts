@@ -40,47 +40,47 @@ main() {
     case $choice in
         1)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/ip.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/ip.sh && chmod +x /mnt/ip.sh && /mnt/ip.sh
+            wget -q -O /mnt/ip.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/ip.sh && chmod +x /mnt/ip.sh && /mnt/ip.sh
             ;;
         2)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/hostname_setting.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/hostname_setting.sh && chmod +x /mnt/hostname_setting.sh && /mnt/hostname_setting.sh
+            wget -q -O /mnt/hostname_setting.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/hostname_setting.sh && chmod +x /mnt/hostname_setting.sh && /mnt/hostname_setting.sh
             ;;
         3)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/basic_settings.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/basic_settings.sh && chmod +x /mnt/basic_settings.sh && /mnt/basic_settings.sh
+            wget -q -O /mnt/basic_settings.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/basic_settings.sh && chmod +x /mnt/basic_settings.sh && /mnt/basic_settings.sh
             ;;            
         4)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/basic_command.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/basic_command.sh && chmod +x /mnt/basic_command.sh && /mnt/basic_command.sh
+            wget -q -O /mnt/basic_command.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/basic_command.sh && chmod +x /mnt/basic_command.sh && /mnt/basic_command.sh
             ;;
         5)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/mosdns.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/mosdns.sh && chmod +x /mnt/mosdns.sh && /mnt/mosdns.sh
+            wget -q -O /mnt/mosdns.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/mosdns.sh && chmod +x /mnt/mosdns.sh && /mnt/mosdns.sh
             ;;
         6)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/singbox.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/singbox.sh && chmod +x /mnt/singbox.sh && /mnt/singbox.sh
+            wget -q -O /mnt/singbox.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/singbox.sh && chmod +x /mnt/singbox.sh && /mnt/singbox.sh
             ;;
         7)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/pve.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/pve.sh && chmod +x /mnt/pve.sh && /mnt/pve.sh
+            wget -q -O /mnt/pve.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/pve.sh && chmod +x /mnt/pve.sh && /mnt/pve.sh
             ;;  
         8)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/brutal.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/brutal.sh && chmod +x /mnt/brutal.sh && /mnt/brutal.sh
+            wget -q -O /mnt/brutal.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/brutal.sh && chmod +x /mnt/brutal.sh && /mnt/brutal.sh
             ;;
         9)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/smarthome.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/smarthome.sh && chmod +x /mnt/smarthome.sh && /mnt/smarthome.sh
+            wget -q -O /mnt/smarthome.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/smarthome.sh && chmod +x /mnt/smarthome.sh && /mnt/smarthome.sh
             ;;                                                 
         10)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/docker.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/docker.sh && chmod +x /mnt/docker.sh && /mnt/docker.sh
+            wget -q -O /mnt/docker.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/docker.sh && chmod +x /mnt/docker.sh && /mnt/docker.sh
             ;;
         11)
             white "脚本切换中，请等待..."
-            wget -q -O /mnt/docker_compose.sh https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/docker_compose.sh && chmod +x /mnt/docker_compose.sh && /mnt/docker_compose.sh
+            wget -q -O /mnt/docker_compose.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/docker_compose.sh && chmod +x /mnt/docker_compose.sh && /mnt/docker_compose.sh
             ;;
         0)
             red "退出脚本，感谢使用."
@@ -104,7 +104,7 @@ quick() {
     echo -e "欢迎使用脚本转快速启动脚本，脚本运行完成后在shell界面输入main即可调用脚本"
     echo "=================================================================="
     white "开始转快速启动..."
-    wget --quiet --show-progress -O /usr/bin/main https://raw.githubusercontent.com/imortons/LinuxScripts/main/AIO/Scripts/main_install.sh 
+    wget --quiet --show-progress -O /usr/bin/main https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh 
     chmod +x /usr/bin/main
     green "脚本转快捷启动已完成，shell界面输入main即可调用脚本"
 }

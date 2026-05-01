@@ -84,7 +84,7 @@ docker_choose() {
         -)
             white "脚本切换中，请等待..."
             [ -f /mnt/docker.sh ] && rm -rf /mnt/docker.sh    #delete 
-            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
+            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
             ;;
         *)
             white "无效的选项，1秒后返回当前菜单，请重新选择有效的选项."
@@ -427,7 +427,7 @@ quick_docker() {
     echo -e "欢迎使用docker脚本转快速启动脚本，脚本运行完成后在shell界面输入docker即可调用脚本"
     echo "=================================================================="
     white "开始转快速启动..."
-    wget -O /usr/bin/docker https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Scripts/docker.sh 
+    wget -O /usr/bin/docker https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/docker.sh 
     chmod +x /usr/bin/docker
     green "docker脚本转快捷启动已完成，shell界面输入docker即可调用脚本"
 }

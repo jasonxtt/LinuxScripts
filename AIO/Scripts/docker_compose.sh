@@ -440,7 +440,7 @@ docker_compose_choose() {
         -)
             white "脚本切换中，请等待..."
             rm -rf /mnt/docker_compose.sh    #delete
-            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
+            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
             ;;
         *)
             white "无效的选项，1秒后返回当前菜单，请重新选择有效的选项."
@@ -480,7 +480,7 @@ echo -e "您输入的安装路径为：${yellow}${compose_path}${reset}"
     white "开始生成配置文件..."
 
     # 下载compose文件
-    wget -q -O docker-compose.yaml "https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/docker_compose/${compose_name}.yaml"
+    wget -q -O docker-compose.yaml "https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/docker_compose/${compose_name}.yaml"
 
 
 

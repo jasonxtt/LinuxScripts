@@ -71,7 +71,7 @@ SmartHome_choose() {
         -)
             white "脚本切换中，请等待..."
             [ -f /mnt/smarthome.sh ] && rm -rf /mnt/smarthome.sh    #delete 
-            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
+            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
             ;;
         *)
             white "无效的选项，1秒后返回当前菜单，请重新选择有效的选项."
@@ -421,7 +421,7 @@ DDNS_install() {
     fi
 
     case $ddns_choose_for_all in
-        1) wget --quiet --show-progress -O /mnt/ddns/DDNS.sh https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/ddns/dnspod.sh ;;
+        1) wget --quiet --show-progress -O /mnt/ddns/DDNS.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/ddns/dnspod.sh ;;
     esac
 
     sed -i "s|DDNS_ALL_DOMAIN|${DDNS_ALL_DOMAIN}|g" /mnt/ddns/DDNS.sh
@@ -523,7 +523,7 @@ http_server(){
         exit 1
     fi
     cd /mnt/gohttpserver
-    wget --quiet --show-progress -O /mnt/gohttpserver/gohttpserver.tar.gz https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/gohttpserver/gohttpserver_1.1.4_linux_amd64.tar.gz
+    wget --quiet --show-progress -O /mnt/gohttpserver/gohttpserver.tar.gz https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/gohttpserver/gohttpserver_1.1.4_linux_amd64.tar.gz
     if [ ! -f "/mnt/gohttpserver/gohttpserver.tar.gz" ]; then
         red "文件下载失败，请检查网络，保持网络畅通后重新运行脚本"
         [ -f /mnt/smarthome.sh ] && rm -rf /mnt/smarthome.sh    #delete   

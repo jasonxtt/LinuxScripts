@@ -78,7 +78,7 @@ brutal_choose() {
         -)
             white "脚本切换中，请等待..."
             rm -rf /mnt/brutal.sh     #delete     
-            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
+            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
             ;;
         *)
             white "无效的选项，1秒后返回当前菜单，请重新选择有效的选项."
@@ -303,7 +303,7 @@ install_nginx() {
 
   # 配置nginx
   [ ! -d "/etc/nginx/conf.d" ] && mkdir -p "/etc/nginx/conf.d"
-  wget -q -O /etc/nginx/conf.d/default.conf https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/brutal/nginx/brutal_nginx_config.conf
+  wget -q -O /etc/nginx/conf.d/default.conf https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/brutal/nginx/brutal_nginx_config.conf
   sed -i "s|nginx_SSL_DOMAIN|${SSL_DOMAIN}|g" /etc/nginx/conf.d/default.conf
 
   # 解除80端口占用
@@ -336,7 +336,7 @@ install_nginx() {
 
   # 下载并解压hdsn_2_caraft.zip文件
   white "开始下载伪装文件..."
-  ZIP_URL="https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/brutal/nginx/hdsn_2_caraft.zip"
+  ZIP_URL="https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/brutal/nginx/hdsn_2_caraft.zip"
   DOWNLOAD_DIR="/mnt/bratul"
   DEST_DIR="/usr/share/nginx/html"
 
@@ -478,7 +478,7 @@ fi
 }
 ################################写入配置文件################################
 install_config() {
-    wget -q -O /usr/local/etc/sing-box/config.json https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/brutal/singbox/brutal_singbox_config.json
+    wget -q -O /usr/local/etc/sing-box/config.json https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/brutal/singbox/brutal_singbox_config.json
     singbox_config_file="/usr/local/etc/sing-box/config.json"
     if [ ! -f "$singbox_config_file" ]; then
         red "错误：配置文件 $singbox_config_file 不存在"
@@ -568,7 +568,7 @@ outbounds_setting() {
     fi
 
     white "开始生成出站节点配置..."
-    wget -q -O /usr/local/etc/sing-box/outbounds.json https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/brutal/singbox/outbounds.json
+    wget -q -O /usr/local/etc/sing-box/outbounds.json https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/brutal/singbox/outbounds.json
 
     white "\n参数变量："
     white "VPS IP或域名: ${yellow}$vps_ip_domain${reset}"
@@ -598,7 +598,7 @@ outbounds_setting() {
     sed -i "s/singbox_short_id/${short_id}/g" /usr/local/etc/sing-box/outbounds.json
     sed -i "s/singbox_input_up_mbps/${singbox_input_up_mbps}/g" /usr/local/etc/sing-box/outbounds.json
 
-    wget -q -O /usr/local/etc/sing-box/vless.txt https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/brutal/singbox/vless.txt
+    wget -q -O /usr/local/etc/sing-box/vless.txt https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/brutal/singbox/vless.txt
     sed -i "s/singbox_uuid/${uuid}/g" /usr/local/etc/sing-box/vless.txt
     sed -i "s/vps_ip_domain/${vps_ip_domain}/g" /usr/local/etc/sing-box/vless.txt
     sed -i "s/singbox_input_port/${singbox_input_port}/g" /usr/local/etc/sing-box/vless.txt

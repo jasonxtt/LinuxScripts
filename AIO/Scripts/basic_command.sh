@@ -91,7 +91,7 @@ command_choose() {
         -)
             white "脚本切换中，请等待..."
             [ -f /mnt/basic_command.sh ] && rm -rf /mnt/basic_command.sh    #delete        
-            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
+            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
             ;;
         *)
             white "无效的选项，1秒后返回当前菜单，请重新选择有效的选项."
@@ -136,7 +136,7 @@ quick() {
     echo -e "欢迎使用 ubuntu/debian 基础命令脚本转快速启动脚本，脚本\n运行完成后在shell界面输入 esay 即可调用脚本"
     echo "=================================================================="
     white "开始转快速启动..."
-    wget -O /usr/bin/easy https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Scripts/basic_command.sh
+    wget -O /usr/bin/easy https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/basic_command.sh
     chmod +x /usr/bin/easy
     green "ubuntu/debian 基础命令脚本转快捷启动已完成，shell界面输入 easy 即可调用脚本"
     [ -f /mnt/basic_command.sh ] && rm -rf /mnt/basic_command.sh    #delete    

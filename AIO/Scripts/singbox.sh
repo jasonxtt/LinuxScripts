@@ -105,7 +105,7 @@ singbox_choose() {
         -)
             white "脚本切换中，请等待..."
             rm -rf /mnt/singbox.sh    #delete       
-            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
+            wget -q -O /mnt/main_install.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
             ;;
         *)
             white "无效的选项，1秒后返回当前菜单，请重新选择有效的选项."
@@ -453,7 +453,7 @@ fi
 install_config() {
     if [[ "$node_basic_choose" == "1" ]]; then
         if [[ "$node_operation" == "1" ]]; then
-            wget -q -O /usr/local/etc/sing-box/config.json https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/singbox/config_vless.json
+            wget -q -O /usr/local/etc/sing-box/config.json https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/singbox/config_vless.json
             singbox_config_file="/usr/local/etc/sing-box/config.json"
             if [ ! -f "$singbox_config_file" ]; then
                 red "错误：配置文件 $singbox_config_file 不存在"
@@ -471,7 +471,7 @@ install_config() {
             sed -i "s|vless_up_mbps|${vless_up_mbps}|g" /usr/local/etc/sing-box/config.json
             sed -i "s|vless_down_mbps|${vless_down_mbps}|g" /usr/local/etc/sing-box/config.json
         elif [[ "$node_operation" == "2" ]]; then
-            wget -q -O /usr/local/etc/sing-box/config.json https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/singbox/config_hy2.json
+            wget -q -O /usr/local/etc/sing-box/config.json https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/singbox/config_hy2.json
             singbox_config_file="/usr/local/etc/sing-box/config.json"
             if [ ! -f "$singbox_config_file" ]; then
                 red "错误：配置文件 $singbox_config_file 不存在"
@@ -488,7 +488,7 @@ install_config() {
             sed -i "s|hy2_pass_domain|${hy2_pass_domain}|g" /usr/local/etc/sing-box/config.json
         fi
     else
-        wget -q -O /usr/local/etc/sing-box/config.json https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/singbox/singbox.json
+        wget -q -O /usr/local/etc/sing-box/config.json https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/singbox/singbox.json
         singbox_config_file="/usr/local/etc/sing-box/config.json"
         if [ ! -f "$singbox_config_file" ]; then
             red "错误：配置文件 $singbox_config_file 不存在"
@@ -801,7 +801,7 @@ fi
     white "开始重启sing-box"
     systemctl restart sing-box
     white "开始生成sing-box回家-手机配置"
-    wget -q -O /root/go_home.json https://raw.githubusercontent.com/feiye2021/LinuxScripts/main/AIO/Configs/singbox/go_home.json
+    wget -q -O /root/go_home.json https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Configs/singbox/go_home.json
     home_config_file="/root/go_home.json"
     if [ ! -f "$home_config_file" ]; then
         echo -e "\e[31m错误：配置文件 $home_config_file 不存在.\e[0m"
