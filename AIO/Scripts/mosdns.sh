@@ -89,22 +89,22 @@ get_public_ipv4() {
     return 1
 }
 
-get_mosdns_asset_candidates() {
+get_mosdns_arch_pattern() {
     local arch
     arch=$(uname -m)
 
     case "$arch" in
         x86_64|amd64)
-            echo "mosdns-linux-amd64.zip mosdns-linux-amd64-v3.zip"
+            echo "(amd64|x86_64|x64)"
             ;;
         aarch64|arm64)
-            echo "mosdns-linux-arm64.zip"
+            echo "(arm64|aarch64)"
             ;;
         armv7l|armv7|armhf)
-            echo "mosdns-linux-armv7.zip mosdns-linux-armv7l.zip"
+            echo "(armv7|arm-7|armhf)"
             ;;
         armv6l|armv6)
-            echo "mosdns-linux-armv6.zip"
+            echo "(armv6|arm-6)"
             ;;
         *)
             return 1
@@ -115,14 +115,14 @@ get_mosdns_asset_candidates() {
 download_and_install_mosdns_binary() {
     local tmp_dir="/tmp/mosdns-bin-install"
     local json
-    local candidates
-    local candidate
+    local arch_pattern
+    local urls
     local asset_url=""
     local asset_name=""
     local found_bin
 
     white "正在识别系统架构并匹配 mosdns 二进制..."
-    candidates=$(get_mosdns_asset_candidates) || {
+    arch_pattern=$(get_mosdns_arch_pattern) || {
         red "不支持的CPU架构：$(uname -m)，请手动安装 mosdns 二进制"
         exit 1
     }
@@ -132,16 +132,13 @@ download_and_install_mosdns_binary() {
         exit 1
     }
 
-    for candidate in $candidates; do
-        asset_url=$(printf '%s' "$json" | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]*'"$candidate"'"' | head -n 1 | cut -d '"' -f 4)
-        if [ -n "$asset_url" ]; then
-            asset_name="$candidate"
-            break
-        fi
-    done
+    urls=$(printf '%s' "$json" | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+"' | sed -E 's/^"browser_download_url"[[:space:]]*:[[:space:]]*"([^"]+)"$/\1/')
+
+    asset_url=$(printf '%s\n' "$urls" | grep -Ei "mosdns.*linux|linux.*mosdns" | grep -Ei "$arch_pattern" | head -n 1)
+    asset_name=$(basename "$asset_url")
 
     if [ -z "$asset_url" ]; then
-        red "未在最新 release 中找到适配 $(uname -m) 的二进制资产"
+        red "未在最新 release 中找到适配 $(uname -m) 的 Linux 二进制资产"
         exit 1
     fi
 
@@ -155,13 +152,32 @@ download_and_install_mosdns_binary() {
         exit 1
     }
 
-    unzip -o "$tmp_dir/$asset_name" -d "$tmp_dir" >/dev/null || {
-        red "解压 mosdns 二进制失败"
-        rm -rf "$tmp_dir"
-        exit 1
-    }
+    case "$asset_name" in
+        *.zip)
+            unzip -o "$tmp_dir/$asset_name" -d "$tmp_dir" >/dev/null || {
+                red "解压 zip 失败"
+                rm -rf "$tmp_dir"
+                exit 1
+            }
+            ;;
+        *.tar.gz|*.tgz)
+            tar -xzf "$tmp_dir/$asset_name" -C "$tmp_dir" || {
+                red "解压 tar.gz 失败"
+                rm -rf "$tmp_dir"
+                exit 1
+            }
+            ;;
+        *)
+            # 某些发布直接上传裸二进制
+            cp "$tmp_dir/$asset_name" "$tmp_dir/mosdns" || {
+                red "处理二进制文件失败"
+                rm -rf "$tmp_dir"
+                exit 1
+            }
+            ;;
+    esac
 
-    found_bin=$(find "$tmp_dir" -type f -name mosdns | head -n 1)
+    found_bin=$(find "$tmp_dir" -type f \( -name mosdns -o -name "mosdns-linux-*" \) | head -n 1)
     if [ -z "$found_bin" ]; then
         red "未在压缩包中找到 mosdns 可执行文件"
         rm -rf "$tmp_dir"
