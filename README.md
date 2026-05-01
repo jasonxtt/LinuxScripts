@@ -1,24 +1,20 @@
 # LinuxScripts
 
-Linux自用一键脚本，集成如IP修改、Hostname修改、MosDNS安装及Ui面板安装和Singbox安装等功能，后续随使用**持续更新**，敬请关注
+Linux自用一键脚本，集成如IP修改、Hostname修改、MosDNS安装等功能，后续随使用**持续更新**，敬请关注
 
 ## 特别鸣谢
+@aireyu @Panicpanic
 
-@ovpavac
 
-@[Myhero_my](https://github.com/52shell/sing-box-mosdns-fakeip)
+## 下载使用
 
-@Panicpanic
+```shell
+wget --quiet --show-progress -O /mnt/main_install.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
+```
 
-@[孔昊天](https://github.com/KHTdhl/AIO/blob/main/3.%E7%BD%91%E7%BB%9C%E7%9B%B8%E5%85%B3/DNS/mosdns%E6%95%99%E7%A8%8B%E4%B8%8E%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/0.mosdns%2Bui%E6%90%AD%E5%BB%BA%E6%95%99%E7%A8%8B.md)
-
-@[FrozenGEE](https://github.com/FrozenGEE/compose)
-
-## AIO脚本
+## AIO脚本说明
 
 Linux综合脚本，包含基础环境设置、更新及部分软件安装、卸载。
-
-**持续更新中**
 
 ### 功能简介
 
@@ -46,41 +42,8 @@ Linux综合脚本，包含基础环境设置、更新及部分软件安装、卸
   - 清屏
   - ubuntu/debian 基础命令脚本转快速启动  
 - MosDNS
-  - 安装Mosdns
-  - 更新Mosdns
-  - 更新Mosdns（Οὐρανός版）配置文件  最新:20240930版
-  - 重置Mosdns缓存
-  - 安装Mosdns UI（版本选择）
-    - 孔昊天版
-    - Οὐρανός版
+  - 安装Mosdns （Tom魔改版）
   - 卸载Mosdns
-  - 卸载Mosdns UI
-  - 一键安装Mosdns及UI面板（版本选择）
-    - 孔昊天版
-    - Οὐρανός版
-  - 一键卸载Mosdns及UI面板
-  - MosDNS表外域名增加AdGuardHome缓存
-  - 阿里公共DNS定时更新绑定IP脚本
-  - 一键重置Mosdns缓存 & UI 数据重置
-- Sing-box
-  - 安装官方sing-box
-    - go文件编译模式安装
-      - 安装 vless节点（brutal协议） [可选]
-      - 安装 Hysteria 2节点 [可选]
-    - 下载二进制文件模式安装
-      - 安装 vless节点（brutal协议） [可选]
-      - 安装 Hysteria 2节点 [可选]
-  - 升级官方sing-box
-    - go文件编译模式升级
-    - 下载二进制文件模式升级
-  - sing-box添加部分协议节点
-    - 安装 vless节点（brutal协议） [默认选项]
-    - 安装 Hysteria 2 节点
-  - Hysteria2 回家
-  - 卸载 sing-box
-  - 卸载 Hysteria2 回家
-  - 一键卸载 singbox 及 Hysteria2 回家
-  - sing-box 面板（metacubexd）升级
 - PVE系统
   - 开启硬件直通
   - 虚拟机/LXC容器 解锁
@@ -227,19 +190,6 @@ Linux综合脚本，包含基础环境设置、更新及部分软件安装、卸
 
 ---
 
-## 下载使用
-
-```shell
-wget --quiet --show-progress -O /mnt/main_install.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/main_install.sh && chmod +x /mnt/main_install.sh && /mnt/main_install.sh
-```
-
 ## 特别说明
 
-> mosdns脚本部分借鉴[孔昊天](https://github.com/KHTdhl/AIO/blob/main/3.%E7%BD%91%E7%BB%9C%E7%9B%B8%E5%85%B3/DNS/mosdns%E6%95%99%E7%A8%8B%E4%B8%8E%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/0.mosdns%2Bui%E6%90%AD%E5%BB%BA%E6%95%99%E7%A8%8B.md)一键脚本，特别鸣谢。
-> 
-> singbox脚本部分借鉴[Myhero_my](https://github.com/52shell/sing-box-mosdns-fakeip)大佬脚本，特别鸣谢。
-> 
-> 配置由ovpavac、Panicpanic两位大佬调教优化，特别鸣谢。
-> 
 > docker-compose部分出自[FrozenGEE](https://github.com/FrozenGEE/compose)大佬通用库，还有其他仓库，如有需要请移步大佬仓库，特别鸣谢。
-

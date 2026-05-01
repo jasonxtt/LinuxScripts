@@ -300,7 +300,7 @@ install_mosdns() {
     local ecs_ipv4
 
     while true; do
-        read -p "请输入 socks 地址（示例 10.0.0.2:7890）：" socks5_input
+        read -p "请输入sing-box/mihomo提供的socks5代理，例如 10.0.0.2:7890 ：" socks5_input
         if is_valid_host_port "$socks5_input"; then
             break
         else
@@ -309,7 +309,7 @@ install_mosdns() {
     done
 
     while true; do
-        read -p "请输入 fakeip 上游（示例 10.0.0.2:6666）：" fakeip_upstream_input
+        read -p "请输入sing-box/mihomo监听的DNS端口，用于获取fakeip，例如 10.0.0.2:6666 ：" fakeip_upstream_input
         if is_valid_host_port "$fakeip_upstream_input"; then
             break
         else
