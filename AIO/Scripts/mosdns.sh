@@ -23,7 +23,7 @@ white(){
 SCRIPT_REPO_BASE="https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main"
 SERVICE_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/service/mosdns.service"
 CONFIG_ZIP_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/config/config_all.zip"
-MOSDNS_LATEST_API="https://api.github.com/repos/jasonxtt/mosdns/releases/latest"
+MOSDNS_RELEASE_LATEST_DOWNLOAD_BASE="https://github.com/jasonxtt/mosdns/releases/latest/download"
 
 is_valid_ipv4() {
     local ip="$1"
@@ -89,22 +89,23 @@ get_public_ipv4() {
     return 1
 }
 
-get_mosdns_arch_pattern() {
+get_mosdns_asset_candidates() {
     local arch
     arch=$(uname -m)
 
     case "$arch" in
         x86_64|amd64)
-            echo "(amd64|x86_64|x64)"
+            # x86 默认非 v3，避免老CPU或虚拟机指令集不完整导致不可运行
+            echo "mosdns-linux-amd64.zip mosdns-linux-x86_64.zip mosdns-linux-amd64.tar.gz mosdns-linux-amd64"
             ;;
         aarch64|arm64)
-            echo "(arm64|aarch64)"
+            echo "mosdns-linux-arm64.zip mosdns-linux-aarch64.zip mosdns-linux-arm64.tar.gz mosdns-linux-arm64"
             ;;
         armv7l|armv7|armhf)
-            echo "(armv7|arm-7|armhf)"
+            echo "mosdns-linux-arm-7.zip mosdns-linux-armv7.zip mosdns-linux-armv7l.zip mosdns-linux-arm-7.tar.gz"
             ;;
         armv6l|armv6)
-            echo "(armv6|arm-6)"
+            echo "mosdns-linux-arm-6.zip mosdns-linux-armv6.zip mosdns-linux-arm-6.tar.gz"
             ;;
         *)
             return 1
@@ -112,100 +113,32 @@ get_mosdns_arch_pattern() {
     esac
 }
 
-cpu_supports_x86_64_v3() {
-    local flags
-    local required_flags=(
-        "avx"
-        "avx2"
-        "bmi1"
-        "bmi2"
-        "f16c"
-        "fma"
-        "movbe"
-        "sse4_1"
-        "sse4_2"
-        "ssse3"
-        "popcnt"
-        "xsave"
-    )
-    local flag
-
-    [ -r /proc/cpuinfo ] || return 1
-    flags=$(grep -m1 '^flags' /proc/cpuinfo | cut -d: -f2-)
-    [ -n "$flags" ] || return 1
-
-    for flag in "${required_flags[@]}"; do
-        if ! printf ' %s ' "$flags" | grep -q " ${flag} "; then
-            return 1
-        fi
-    done
-
-    return 0
-}
-
 download_and_install_mosdns_binary() {
     local tmp_dir="/tmp/mosdns-bin-install"
-    local json
-    local arch_pattern
-    local arch
-    local urls
-    local linux_arch_urls
-    local asset_url_v3=""
-    local asset_url_non_v3=""
+    local candidates
+    local candidate
+    local candidate_url
     local asset_url=""
     local asset_name=""
     local found_bin
 
     white "正在识别系统架构并匹配 mosdns 二进制..."
-    arch_pattern=$(get_mosdns_arch_pattern) || {
+    candidates=$(get_mosdns_asset_candidates) || {
         red "不支持的CPU架构：$(uname -m)，请手动安装 mosdns 二进制"
         exit 1
     }
 
-    json=$(curl -fsSL "$MOSDNS_LATEST_API" 2>/dev/null) || {
-        red "获取 mosdns 最新版本信息失败，请稍后重试"
-        exit 1
-    }
-
-    urls=$(printf '%s' "$json" | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+"' | sed -E 's/^"browser_download_url"[[:space:]]*:[[:space:]]*"([^"]+)"$/\1/')
-    linux_arch_urls=$(printf '%s\n' "$urls" | grep -Ei "mosdns.*linux|linux.*mosdns" | grep -Ei "$arch_pattern")
-    arch=$(uname -m)
-
-    if [[ "$arch" == "x86_64" || "$arch" == "amd64" ]]; then
-        asset_url_v3=$(printf '%s\n' "$linux_arch_urls" | awk '
-            {
-                n=split($0, parts, "/")
-                fn=tolower(parts[n])
-                if (fn ~ /(^|[^a-z0-9])(v3|x86-64-v3|amd64-v3|amd64v3)([^a-z0-9]|$)/) {
-                    print $0
-                    exit
-                }
-            }')
-        asset_url_non_v3=$(printf '%s\n' "$linux_arch_urls" | awk '
-            {
-                n=split($0, parts, "/")
-                fn=tolower(parts[n])
-                if (fn !~ /(^|[^a-z0-9])(v3|x86-64-v3|amd64-v3|amd64v3)([^a-z0-9]|$)/) {
-                    print $0
-                    exit
-                }
-            }')
-
-        if cpu_supports_x86_64_v3; then
-            asset_url="${asset_url_v3:-$asset_url_non_v3}"
-            white "检测到CPU支持x86-64-v3，优先选择v3二进制。"
-        else
-            asset_url="${asset_url_non_v3:-$asset_url_v3}"
-            white "未检测到x86-64-v3支持，默认选择非v3二进制。"
+    for candidate in $candidates; do
+        candidate_url="${MOSDNS_RELEASE_LATEST_DOWNLOAD_BASE}/${candidate}"
+        if curl -fsIL --max-time 12 "$candidate_url" >/dev/null 2>&1; then
+            asset_url="$candidate_url"
+            asset_name="$candidate"
+            break
         fi
-    else
-        asset_url=$(printf '%s\n' "$linux_arch_urls" | head -n 1)
-    fi
-
-    asset_name=$(basename "$asset_url")
+    done
 
     if [ -z "$asset_url" ]; then
-        red "未在最新 release 中找到适配 $(uname -m) 的 Linux 二进制资产"
+        red "未在最新 release 中找到适配 $(uname -m) 的 Linux 二进制资产（直链探测失败）"
         exit 1
     fi
 
