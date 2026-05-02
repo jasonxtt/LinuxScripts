@@ -112,11 +112,46 @@ get_mosdns_arch_pattern() {
     esac
 }
 
+cpu_supports_x86_64_v3() {
+    local flags
+    local required_flags=(
+        "avx"
+        "avx2"
+        "bmi1"
+        "bmi2"
+        "f16c"
+        "fma"
+        "movbe"
+        "sse4_1"
+        "sse4_2"
+        "ssse3"
+        "popcnt"
+        "xsave"
+    )
+    local flag
+
+    [ -r /proc/cpuinfo ] || return 1
+    flags=$(grep -m1 '^flags' /proc/cpuinfo | cut -d: -f2-)
+    [ -n "$flags" ] || return 1
+
+    for flag in "${required_flags[@]}"; do
+        if ! printf ' %s ' "$flags" | grep -q " ${flag} "; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
 download_and_install_mosdns_binary() {
     local tmp_dir="/tmp/mosdns-bin-install"
     local json
     local arch_pattern
+    local arch
     local urls
+    local linux_arch_urls
+    local asset_url_v3=""
+    local asset_url_non_v3=""
     local asset_url=""
     local asset_name=""
     local found_bin
@@ -133,8 +168,40 @@ download_and_install_mosdns_binary() {
     }
 
     urls=$(printf '%s' "$json" | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+"' | sed -E 's/^"browser_download_url"[[:space:]]*:[[:space:]]*"([^"]+)"$/\1/')
+    linux_arch_urls=$(printf '%s\n' "$urls" | grep -Ei "mosdns.*linux|linux.*mosdns" | grep -Ei "$arch_pattern")
+    arch=$(uname -m)
 
-    asset_url=$(printf '%s\n' "$urls" | grep -Ei "mosdns.*linux|linux.*mosdns" | grep -Ei "$arch_pattern" | head -n 1)
+    if [[ "$arch" == "x86_64" || "$arch" == "amd64" ]]; then
+        asset_url_v3=$(printf '%s\n' "$linux_arch_urls" | awk '
+            {
+                n=split($0, parts, "/")
+                fn=tolower(parts[n])
+                if (fn ~ /(^|[^a-z0-9])(v3|x86-64-v3|amd64-v3|amd64v3)([^a-z0-9]|$)/) {
+                    print $0
+                    exit
+                }
+            }')
+        asset_url_non_v3=$(printf '%s\n' "$linux_arch_urls" | awk '
+            {
+                n=split($0, parts, "/")
+                fn=tolower(parts[n])
+                if (fn !~ /(^|[^a-z0-9])(v3|x86-64-v3|amd64-v3|amd64v3)([^a-z0-9]|$)/) {
+                    print $0
+                    exit
+                }
+            }')
+
+        if cpu_supports_x86_64_v3; then
+            asset_url="${asset_url_v3:-$asset_url_non_v3}"
+            white "检测到CPU支持x86-64-v3，优先选择v3二进制。"
+        else
+            asset_url="${asset_url_non_v3:-$asset_url_v3}"
+            white "未检测到x86-64-v3支持，默认选择非v3二进制。"
+        fi
+    else
+        asset_url=$(printf '%s\n' "$linux_arch_urls" | head -n 1)
+    fi
+
     asset_name=$(basename "$asset_url")
 
     if [ -z "$asset_url" ]; then
