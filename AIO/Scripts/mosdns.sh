@@ -23,7 +23,7 @@ white(){
 SCRIPT_REPO_BASE="https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main"
 SERVICE_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/service/mosdns.service"
 CONFIG_ZIP_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/config/config_all.zip"
-MOSDNS_RELEASE_LATEST_DOWNLOAD_BASE="https://github.com/jasonxtt/mosdns/releases/latest/download"
+MOSDNS_RELEASES_URL="https://github.com/jasonxtt/mosdns/releases"
 
 is_valid_ipv4() {
     local ip="$1"
@@ -96,16 +96,16 @@ get_mosdns_asset_candidates() {
     case "$arch" in
         x86_64|amd64)
             # x86 默认非 v3，避免老CPU或虚拟机指令集不完整导致不可运行
-            echo "mosdns-linux-amd64.zip mosdns-linux-x86_64.zip mosdns-linux-amd64.tar.gz mosdns-linux-amd64"
+            echo "linux-amd64 linux-x86_64"
             ;;
         aarch64|arm64)
-            echo "mosdns-linux-arm64.zip mosdns-linux-aarch64.zip mosdns-linux-arm64.tar.gz mosdns-linux-arm64"
+            echo "linux-arm64 linux-aarch64"
             ;;
         armv7l|armv7|armhf)
-            echo "mosdns-linux-arm-7.zip mosdns-linux-armv7.zip mosdns-linux-armv7l.zip mosdns-linux-arm-7.tar.gz"
+            echo "linux-armv7 linux-arm-7 linux-armv7l"
             ;;
         armv6l|armv6)
-            echo "mosdns-linux-arm-6.zip mosdns-linux-armv6.zip mosdns-linux-arm-6.tar.gz"
+            echo "linux-armv6 linux-arm-6"
             ;;
         *)
             return 1
@@ -115,9 +115,13 @@ get_mosdns_asset_candidates() {
 
 download_and_install_mosdns_binary() {
     local tmp_dir="/tmp/mosdns-bin-install"
+    local releases_html
+    local latest_tag
+    local assets_html
+    local asset_urls
     local candidates
     local candidate
-    local candidate_url
+    local url
     local asset_url=""
     local asset_name=""
     local found_bin
@@ -128,17 +132,63 @@ download_and_install_mosdns_binary() {
         exit 1
     }
 
+    releases_html=$(curl -fsSL --max-time 20 "$MOSDNS_RELEASES_URL" 2>/dev/null) || {
+        red "访问 mosdns releases 页面失败，请稍后重试"
+        exit 1
+    }
+
+    latest_tag=$(printf '%s' "$releases_html" | grep -oE '/jasonxtt/mosdns/releases/tag/v[^"<> ]+' | head -n 1 | sed 's#.*/tag/##')
+    if [ -z "$latest_tag" ]; then
+        red "未能识别最新 release tag"
+        exit 1
+    fi
+
+    assets_html=$(curl -fsSL --max-time 20 "https://github.com/jasonxtt/mosdns/releases/expanded_assets/${latest_tag}" 2>/dev/null) || {
+        red "获取 ${latest_tag} 资产列表失败，请稍后重试"
+        exit 1
+    }
+
+    asset_urls=$(printf '%s' "$assets_html" \
+        | grep -oE '/jasonxtt/mosdns/releases/download/'"${latest_tag}"'/[^"<> ]+' \
+        | sed 's#^#https://github.com#' \
+        | sort -u)
+
     for candidate in $candidates; do
-        candidate_url="${MOSDNS_RELEASE_LATEST_DOWNLOAD_BASE}/${candidate}"
-        if curl -fsIL --max-time 12 "$candidate_url" >/dev/null 2>&1; then
-            asset_url="$candidate_url"
-            asset_name="$candidate"
+        for url in $asset_urls; do
+            if printf '%s' "$url" | grep -q "${candidate}"; then
+                # x86 默认跳过 v3
+                if [[ "$(uname -m)" =~ ^(x86_64|amd64)$ ]] && printf '%s' "$url" | grep -Eiq '(^|[^A-Za-z0-9])v3([^A-Za-z0-9]|$)'; then
+                    continue
+                fi
+                asset_url="$url"
+                asset_name=$(basename "$url")
+                break
+            fi
+        done
+        if [ -n "$asset_url" ]; then
             break
         fi
     done
 
+    # x86 回退：若只有 v3 资产，仍可尝试 v3，避免无可用包直接失败
+    if [ -z "$asset_url" ] && [[ "$(uname -m)" =~ ^(x86_64|amd64)$ ]]; then
+        for candidate in $candidates; do
+            for url in $asset_urls; do
+                if printf '%s' "$url" | grep -q "${candidate}" && printf '%s' "$url" | grep -Eiq '(^|[^A-Za-z0-9])v3([^A-Za-z0-9]|$)'; then
+                    asset_url="$url"
+                    asset_name=$(basename "$url")
+                    white "仅检测到 v3 资产，尝试使用 v3 二进制。"
+                    break
+                fi
+            done
+            if [ -n "$asset_url" ]; then
+                break
+            fi
+        done
+    fi
+
     if [ -z "$asset_url" ]; then
-        red "未在最新 release 中找到适配 $(uname -m) 的 Linux 二进制资产（直链探测失败）"
+        red "未在最新 release 中找到适配 $(uname -m) 的 Linux 二进制资产"
         exit 1
     fi
 
