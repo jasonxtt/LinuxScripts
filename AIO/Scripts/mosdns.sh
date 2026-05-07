@@ -89,6 +89,28 @@ get_public_ipv4() {
     return 1
 }
 
+install_dependencies() {
+    white "开始安装依赖..."
+    apt-get update -y && apt-get install -y curl wget unzip perl ca-certificates || {
+        red "依赖安装失败"
+        exit 1
+    }
+}
+
+prompt_public_ipv4() {
+    local ip
+
+    while true; do
+        read -p "自动获取公网 IPv4 失败，请手动输入公网 IPv4：" ip
+        if is_valid_ipv4 "$ip"; then
+            echo "$ip"
+            return 0
+        else
+            red "输入格式错误，请输入有效 IPv4 地址"
+        fi
+    done
+}
+
 get_mosdns_asset_candidates() {
     local arch
     arch=$(uname -m)
@@ -367,18 +389,14 @@ install_mosdns() {
         fi
     done
 
+    install_dependencies
+
     white "正在获取公网 IPv4（依次尝试3个源）..."
     ecs_ipv4=$(get_public_ipv4) || {
-        red "自动获取公网 IPv4 失败，请稍后重试"
-        exit 1
+        ecs_ipv4=$(prompt_public_ipv4)
     }
 
     white "公网 IPv4 检测结果：${yellow}${ecs_ipv4}${reset}"
-    white "开始安装依赖..."
-    apt-get update -y && apt-get install -y curl wget unzip perl || {
-        red "依赖安装失败"
-        exit 1
-    }
 
     setup_systemd_service
     download_and_install_mosdns_binary
