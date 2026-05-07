@@ -97,20 +97,6 @@ install_dependencies() {
     }
 }
 
-prompt_public_ipv4() {
-    local ip
-
-    while true; do
-        read -p "自动获取公网 IPv4 失败，请手动输入公网 IPv4：" ip
-        if is_valid_ipv4 "$ip"; then
-            echo "$ip"
-            return 0
-        else
-            red "输入格式错误，请输入有效 IPv4 地址"
-        fi
-    done
-}
-
 get_mosdns_asset_candidates() {
     local arch
     arch=$(uname -m)
@@ -332,11 +318,13 @@ apply_custom_overrides() {
     }
 
     socks_escaped=$(escape_sed_replacement "$socks5_input")
-    ecs_escaped=$(escape_sed_replacement "$ecs_ipv4")
     upstream_addr=$(escape_sed_replacement "$fakeip_upstream_input")
 
     sed -i -E "s#(\"socks5\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")#\\1${socks_escaped}\\2#" "$config_overrides"
-    sed -i -E "s#(\"ecs\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")#\\1${ecs_escaped}\\2#" "$config_overrides"
+    if [ -n "$ecs_ipv4" ]; then
+        ecs_escaped=$(escape_sed_replacement "$ecs_ipv4")
+        sed -i -E "s#(\"ecs\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")#\\1${ecs_escaped}\\2#" "$config_overrides"
+    fi
     perl -0777 -i -pe "s#(\"nocnfake\"\\s*:\\s*\\[\\s*\\{.*?\"tag\"\\s*:\\s*\"sing-box\".*?\"addr\"\\s*:\\s*\")udp://[^\"]*(\")#\\1udp://${upstream_addr}\\2#s" "$upstream_overrides"
 
     green "配置覆盖已完成"
@@ -393,10 +381,14 @@ install_mosdns() {
 
     white "正在获取公网 IPv4（依次尝试3个源）..."
     ecs_ipv4=$(get_public_ipv4) || {
-        ecs_ipv4=$(prompt_public_ipv4)
+        ecs_ipv4=""
     }
 
-    white "公网 IPv4 检测结果：${yellow}${ecs_ipv4}${reset}"
+    if [ -n "$ecs_ipv4" ]; then
+        white "公网 IPv4 检测结果：${yellow}${ecs_ipv4}${reset}"
+    else
+        red "自动获取公网 IPv4 失败，将跳过 ECS 自动写入"
+    fi
 
     setup_systemd_service
     download_and_install_mosdns_binary
@@ -421,7 +413,11 @@ install_mosdns() {
     echo -e "运行目录：${yellow}/cus/mosdns${reset}"
     echo -e "socks5: ${yellow}${socks5_input}${reset}"
     echo -e "fakeip 上游: ${yellow}udp://${fakeip_upstream_input}${reset}"
-    echo -e "ecs: ${yellow}${ecs_ipv4}${reset}"
+    if [ -n "$ecs_ipv4" ]; then
+        echo -e "ecs: ${yellow}${ecs_ipv4}${reset}"
+    else
+        echo -e "\e[1m\e[31mECS 设置失败，请前往 UI 手动设置 ECS IP\e[0m"
+    fi
     echo "=================================================================="
     systemctl status mosdns --no-pager
 }
