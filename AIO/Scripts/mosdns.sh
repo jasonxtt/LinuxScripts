@@ -22,8 +22,18 @@ white(){
 
 SCRIPT_REPO_BASE="https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main"
 SERVICE_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/service/mosdns.service"
-CONFIG_ZIP_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/config/config_all.zip"
-MOSDNS_RELEASES_URL="https://github.com/jasonxtt/mosdns/releases"
+MOSDNS_RELEASES_BASE_URL="https://github.com/jasonxtt/mosdns/releases"
+MOSDNS_STD_RELEASE_TAG="v0.4.0"
+MOSDNS_STD_ASSET_PREFIX="mosdns-0.4.0-"
+MOSDNS_STD_CONFIG_ZIP_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/config/config_all.zip"
+MOSDNS_LITE_RELEASE_TAG="lite-v0.1.0"
+MOSDNS_LITE_ASSET_PREFIX="mosdns-lite-0.1.0-"
+MOSDNS_LITE_CONFIG_ZIP_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/config/config_lite_all.zip"
+
+MOSDNS_FLAVOR_NAME=""
+MOSDNS_RELEASE_TAG=""
+MOSDNS_ASSET_PREFIX=""
+MOSDNS_CONFIG_ZIP_URL=""
 
 is_valid_ipv4() {
     local ip="$1"
@@ -97,6 +107,29 @@ install_dependencies() {
     }
 }
 
+set_mosdns_flavor() {
+    local flavor="$1"
+
+    case "$flavor" in
+        standard)
+            MOSDNS_FLAVOR_NAME="Tom魔改版"
+            MOSDNS_RELEASE_TAG="$MOSDNS_STD_RELEASE_TAG"
+            MOSDNS_ASSET_PREFIX="$MOSDNS_STD_ASSET_PREFIX"
+            MOSDNS_CONFIG_ZIP_URL="$MOSDNS_STD_CONFIG_ZIP_URL"
+            ;;
+        lite)
+            MOSDNS_FLAVOR_NAME="Tom魔改lite版"
+            MOSDNS_RELEASE_TAG="$MOSDNS_LITE_RELEASE_TAG"
+            MOSDNS_ASSET_PREFIX="$MOSDNS_LITE_ASSET_PREFIX"
+            MOSDNS_CONFIG_ZIP_URL="$MOSDNS_LITE_CONFIG_ZIP_URL"
+            ;;
+        *)
+            red "未知的 Mosdns 安装类型：$flavor"
+            exit 1
+            ;;
+    esac
+}
+
 get_mosdns_asset_candidates() {
     local arch
     arch=$(uname -m)
@@ -123,8 +156,6 @@ get_mosdns_asset_candidates() {
 
 download_and_install_mosdns_binary() {
     local tmp_dir="/tmp/mosdns-bin-install"
-    local releases_html
-    local latest_tag
     local assets_html
     local asset_urls
     local candidates
@@ -132,44 +163,45 @@ download_and_install_mosdns_binary() {
     local url
     local asset_url=""
     local asset_name=""
+    local base_name
     local found_bin
 
-    white "正在识别系统架构并匹配 mosdns 二进制..."
+    [ -n "$MOSDNS_RELEASE_TAG" ] || {
+        red "未设置 mosdns release tag"
+        exit 1
+    }
+
+    [ -n "$MOSDNS_ASSET_PREFIX" ] || {
+        red "未设置 mosdns 资产前缀"
+        exit 1
+    }
+
+    white "正在识别系统架构并匹配 ${MOSDNS_FLAVOR_NAME} 二进制..."
     candidates=$(get_mosdns_asset_candidates) || {
         red "不支持的CPU架构：$(uname -m)，请手动安装 mosdns 二进制"
         exit 1
     }
 
-    releases_html=$(curl -fsSL --max-time 20 "$MOSDNS_RELEASES_URL" 2>/dev/null) || {
-        red "访问 mosdns releases 页面失败，请稍后重试"
-        exit 1
-    }
-
-    latest_tag=$(printf '%s' "$releases_html" | grep -oE '/jasonxtt/mosdns/releases/tag/v[^"<> ]+' | head -n 1 | sed 's#.*/tag/##')
-    if [ -z "$latest_tag" ]; then
-        red "未能识别最新 release tag"
-        exit 1
-    fi
-
-    assets_html=$(curl -fsSL --max-time 20 "https://github.com/jasonxtt/mosdns/releases/expanded_assets/${latest_tag}" 2>/dev/null) || {
-        red "获取 ${latest_tag} 资产列表失败，请稍后重试"
+    assets_html=$(curl -fsSL --max-time 20 "${MOSDNS_RELEASES_BASE_URL}/expanded_assets/${MOSDNS_RELEASE_TAG}" 2>/dev/null) || {
+        red "获取 ${MOSDNS_RELEASE_TAG} 资产列表失败，请稍后重试"
         exit 1
     }
 
     asset_urls=$(printf '%s' "$assets_html" \
-        | grep -oE '/jasonxtt/mosdns/releases/download/'"${latest_tag}"'/[^"<> ]+' \
+        | grep -oE '/jasonxtt/mosdns/releases/download/'"${MOSDNS_RELEASE_TAG}"'/[^"<> ]+' \
         | sed 's#^#https://github.com#' \
         | sort -u)
 
     for candidate in $candidates; do
         for url in $asset_urls; do
-            if printf '%s' "$url" | grep -q "${candidate}"; then
+            base_name=$(basename "$url")
+            if [[ "$base_name" == "${MOSDNS_ASSET_PREFIX}${candidate}"* ]]; then
                 # x86 默认跳过 v3
-                if [[ "$(uname -m)" =~ ^(x86_64|amd64)$ ]] && printf '%s' "$url" | grep -Eiq '(^|[^A-Za-z0-9])v3([^A-Za-z0-9]|$)'; then
+                if [[ "$(uname -m)" =~ ^(x86_64|amd64)$ ]] && printf '%s' "$base_name" | grep -Eiq '(^|[-_.])v3([-.]|$)'; then
                     continue
                 fi
                 asset_url="$url"
-                asset_name=$(basename "$url")
+                asset_name="$base_name"
                 break
             fi
         done
@@ -182,9 +214,10 @@ download_and_install_mosdns_binary() {
     if [ -z "$asset_url" ] && [[ "$(uname -m)" =~ ^(x86_64|amd64)$ ]]; then
         for candidate in $candidates; do
             for url in $asset_urls; do
-                if printf '%s' "$url" | grep -q "${candidate}" && printf '%s' "$url" | grep -Eiq '(^|[^A-Za-z0-9])v3([^A-Za-z0-9]|$)'; then
+                base_name=$(basename "$url")
+                if [[ "$base_name" == "${MOSDNS_ASSET_PREFIX}${candidate}"* ]] && printf '%s' "$base_name" | grep -Eiq '(^|[-_.])v3([-.]|$)'; then
                     asset_url="$url"
-                    asset_name=$(basename "$url")
+                    asset_name="$base_name"
                     white "仅检测到 v3 资产，尝试使用 v3 二进制。"
                     break
                 fi
@@ -196,7 +229,7 @@ download_and_install_mosdns_binary() {
     fi
 
     if [ -z "$asset_url" ]; then
-        red "未在最新 release 中找到适配 $(uname -m) 的 Linux 二进制资产"
+        red "未在 ${MOSDNS_RELEASE_TAG} 中找到适配 $(uname -m) 的 ${MOSDNS_FLAVOR_NAME} Linux 二进制资产"
         exit 1
     fi
 
@@ -255,18 +288,25 @@ download_and_install_mosdns_binary() {
 download_and_prepare_config() {
     local tmp_dir="/tmp/mosdns-config-install"
     local extracted_dir=""
+    local config_filename
 
     rm -rf "$tmp_dir"
     mkdir -p "$tmp_dir"
 
-    white "下载配置包 config_all.zip ..."
-    wget -q --show-progress -O "$tmp_dir/config_all.zip" "$CONFIG_ZIP_URL" || {
+    [ -n "$MOSDNS_CONFIG_ZIP_URL" ] || {
+        red "未设置 mosdns 配置包地址"
+        exit 1
+    }
+
+    config_filename=$(basename "$MOSDNS_CONFIG_ZIP_URL")
+    white "下载配置包 ${config_filename} ..."
+    wget -q --show-progress -O "$tmp_dir/$config_filename" "$MOSDNS_CONFIG_ZIP_URL" || {
         red "下载配置包失败"
         rm -rf "$tmp_dir"
         exit 1
     }
 
-    unzip -o "$tmp_dir/config_all.zip" -d "$tmp_dir" >/dev/null || {
+    unzip -o "$tmp_dir/$config_filename" -d "$tmp_dir" >/dev/null || {
         red "解压配置包失败"
         rm -rf "$tmp_dir"
         exit 1
@@ -294,7 +334,7 @@ download_and_prepare_config() {
     }
 
     rm -rf "$tmp_dir"
-    green "配置文件已部署到 /cus/mosdns"
+    green "${MOSDNS_FLAVOR_NAME} 配置文件已部署到 /cus/mosdns"
 }
 
 apply_custom_overrides() {
@@ -307,11 +347,13 @@ apply_custom_overrides() {
     local ecs_escaped
     local upstream_addr
 
+    [ -f "$config_overrides" ] || config_overrides="/cus/mosdns/webinfo/config_overrides.json"
     [ -f "$config_overrides" ] || {
         red "未找到 $config_overrides"
         exit 1
     }
 
+    [ -f "$upstream_overrides" ] || upstream_overrides="/cus/mosdns/webinfo/upstream_overrides.json"
     [ -f "$upstream_overrides" ] || {
         red "未找到 $upstream_overrides"
         exit 1
@@ -355,9 +397,13 @@ release_port_53() {
 }
 
 install_mosdns() {
+    local flavor="$1"
     local socks5_input
     local fakeip_upstream_input
     local ecs_ipv4
+
+    set_mosdns_flavor "$flavor"
+    white "当前安装版本：${yellow}${MOSDNS_FLAVOR_NAME}${reset}"
 
     while true; do
         read -p "请输入sing-box/mihomo提供的socks5代理，例如 10.0.0.2:7890 ：" socks5_input
@@ -408,7 +454,7 @@ install_mosdns() {
     fi
 
     rm -rf /mnt/mosdns.sh
-    green "Mosdns 安装完成"
+    green "Mosdns（${MOSDNS_FLAVOR_NAME}）安装完成"
     echo "=================================================================="
     echo -e "运行目录：${yellow}/cus/mosdns${reset}"
     echo -e "socks5: ${yellow}${socks5_input}${reset}"
@@ -447,7 +493,8 @@ mosdns_choose() {
     echo "请选择要执行的服务："
     echo "=================================================================="
     echo "1. 安装Mosdns（Tom魔改版）"
-    echo "2. 卸载Mosdns"
+    echo "2. 安装Mosdns（Tom魔改lite版）"
+    echo "3. 卸载Mosdns"
     echo -e "\t"
     echo "-. 返回上级菜单"
     echo "0. 退出脚本"
@@ -455,9 +502,12 @@ mosdns_choose() {
 
     case "$choice" in
         1)
-            install_mosdns
+            install_mosdns standard
             ;;
         2)
+            install_mosdns lite
+            ;;
+        3)
             uninstall_mosdns
             ;;
         -)
