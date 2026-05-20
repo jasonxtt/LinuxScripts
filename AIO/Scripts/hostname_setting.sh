@@ -17,7 +17,7 @@ white(){
 }
 current_hostname=$(hostname)
 echo "=================================================================="
-echo -e "\t\tHostName修改脚本 by 忧郁滴飞叶"
+echo -e "\t\tHostName修改脚本 by Tom&忧郁滴飞叶"
 echo -e "\t\n"
 echo -e "当前的主机名是:${yellow}$current_hostname${reset}，脚本完成后将自动重启以应用设置"
 echo "=================================================================="

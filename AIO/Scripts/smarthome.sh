@@ -32,7 +32,7 @@ SmartHome_choose() {
     clear
     rm -rf /mnt/main_install.sh
     echo "=================================================================="
-    echo -e "\t\t智能家居系列脚本 by 忧郁滴飞叶"
+    echo -e "\t\t智能家居系列脚本 by Tom&忧郁滴飞叶"
     echo -e "\t\n"
     white "${yellow}特别说明：\n本系列脚本涉及docker、docker-compose等附加程序安装及使用，\n需具备一定基础，出现错误后进行查错、纠错。${reset}"    
     echo -e "\n请选择服务："

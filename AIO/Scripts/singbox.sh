@@ -25,7 +25,7 @@ white(){
 singbox_choose() {
     clear
     echo "=================================================================="
-    echo -e "\t\tSing-Box相关脚本 by 忧郁滴飞叶"
+    echo -e "\t\tSing-Box相关脚本 by Tom&忧郁滴飞叶"
     echo -e "\t\n"  
     echo "欢迎使用Sing-Box相关脚本"
     echo "请选择要执行的服务："

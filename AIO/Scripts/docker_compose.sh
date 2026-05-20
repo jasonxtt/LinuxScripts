@@ -24,7 +24,7 @@ docker_compose_choose() {
     clear
     rm -rf /mnt/main_install.sh
     white "=================================================================="
-    echo -e "\t\tDocker-compose配置生成脚本 by 忧郁滴飞叶"
+    echo -e "\t\tDocker-compose配置生成脚本 by Tom&忧郁滴飞叶"
     echo -e "\t\n"
     white "请选择要生成的容器配置："
     white "=================================================================="
