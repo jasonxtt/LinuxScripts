@@ -21,6 +21,56 @@ white(){
     echo -e "$1"
 }
 
+prepare_storehouse_tools() {
+    local storehouse_installer="/mnt/storehouse-install.sh"
+    local storehouse_url="https://raw.githubusercontent.com/herozmy/StoreHouse/refs/heads/latest/install.sh"
+
+    if [ -f /usr/local/bin/tools/sing-box.sh ] && [ -f /usr/local/bin/tools/common.sh ]; then
+        return 0
+    fi
+
+    white "开始准备 StoreHouse 安装环境..."
+    wget -q -O "$storehouse_installer" "$storehouse_url"
+    if [ ! -f "$storehouse_installer" ]; then
+        red "StoreHouse 安装脚本下载失败，请检查网络后重试"
+        exit 1
+    fi
+    chmod +x "$storehouse_installer"
+
+    if [ -d /usr/local/bin/tools ]; then
+        white "检测到已有 StoreHouse 目录，开始重新安装工具文件..."
+        printf 'y\nn\n' | bash "$storehouse_installer"
+    else
+        white "开始安装 StoreHouse 基础工具..."
+        printf 'n\n' | bash "$storehouse_installer"
+    fi
+
+    chmod +x /usr/local/bin/tools/*.sh /usr/local/bin/tools/menu.sh /usr/local/bin/tools/proxytool >/dev/null 2>&1 || true
+
+    if [ ! -f /usr/local/bin/tools/sing-box.sh ] || [ ! -f /usr/local/bin/tools/common.sh ]; then
+        red "StoreHouse 工具安装不完整，未检测到 sing-box.sh 或 common.sh"
+        exit 1
+    fi
+}
+
+storehouse_singbox_proxy() {
+    prepare_storehouse_tools
+    white "开始进入 StoreHouse sing-box 透明代理脚本..."
+    bash /usr/local/bin/tools/sing-box.sh
+}
+
+to_home_singbox() {
+    white "开始进入 sing-box 回家安装器..."
+    wget -q -O /mnt/install-sing-box-home.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/install-sing-box-home.sh
+    wget -q -O /mnt/generate-sing-box-config.sh https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main/AIO/Scripts/generate-sing-box-config.sh
+    if [ ! -f /mnt/install-sing-box-home.sh ] || [ ! -f /mnt/generate-sing-box-config.sh ]; then
+        red "回家脚本下载失败，请检查网络后重试"
+        exit 1
+    fi
+    chmod +x /mnt/install-sing-box-home.sh /mnt/generate-sing-box-config.sh
+    /mnt/install-sing-box-home.sh
+}
+
 ################################## Sing-Box选择 ################################
 singbox_choose() {
     clear
@@ -30,73 +80,19 @@ singbox_choose() {
     echo "欢迎使用Sing-Box相关脚本"
     echo "请选择要执行的服务："
     echo "=================================================================="
-    echo "1. 安装官方sing-box"
-    echo "2. 升级官方sing-box"    
-    echo "3. sing-box添加部分协议节点"    
-    echo "4. hysteria2 回家"
-    echo "5. 卸载sing-box" 
-    echo "6. 卸载hysteria2 回家"
-    echo "7. sing-box 面板（metacubexd）升级"    
+    echo "1. 安装sing-box透明代理"
+    echo "2. 配置sing-box回家"
     echo -e "\t"
-    echo "9. 一键卸载singbox及HY2回家"
     echo "-. 返回上级菜单"      
     echo "0) 退出脚本"
     read -p "请选择服务: " choice
     # read choice
     case $choice in
         1)
-            white "开始安装官方Singbox核心"
-            install_mode_choose
-            interface_choose
-            custom_basic
-            basic_settings
-            if [[ "$singbox_install_mode_choose" == "1" ]]; then 
-                install_singbox
-            elif [[ "$singbox_install_mode_choose" == "2" ]]; then
-                install_binary_file_singbox
-            fi
-            install_service
-            install_config
-            install_tproxy
-            install_sing_box_over
+            storehouse_singbox_proxy
             ;;
         2)
-            white "升级官方sing-box"    
-            singbox_update
-            ;;              
-        3)
-            white "sing-box添加部分协议节点"    
-            add_node_flow_path
-            ;;    
-        4)
-            white "开始生成回家配置"
-            hy2_custom_settings
-            install_home
-            install_hy2_home_over
-            ;;
-        5)
-            white "卸载sing-box核心程序及其相关配置文件"    
-            del_singbox
-            rm -rf /mnt/singbox.sh    #delete   
-            ;;
-        6)
-            white "卸载HY2回家配置及其相关配置文件"       
-            del_hy2
-            rm -rf /mnt/singbox.sh    #delete   
-            ;;
-        7)
-            white "升级sing-box 面板（metacubexd）..."       
-            updata_singbox_ui
-            rm -rf /mnt/singbox.sh    #delete   
-            ;;            
-        9)
-            white "一键卸载singbox及HY2回家"    
-            del_singbox
-            echo "删除相关配置文件"
-            rm -rf /root/hysteria
-            rm -rf /root/go_home.json
-            rm -rf /mnt/singbox.sh    #delete   
-            green "HY2回家卸载完成"
+            to_home_singbox
             ;;            
         0)
             red "退出脚本，感谢使用."
