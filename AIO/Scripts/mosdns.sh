@@ -30,6 +30,9 @@ MOSDNS_LITE_RELEASE_TAG="lite-v0.1.0"
 MOSDNS_LITE_ASSET_PREFIX="mosdns-lite-0.1.0-"
 MOSDNS_LITE_CONFIG_ZIP_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/config/config_lite_all.zip"
 
+MOSDNS_PH_RELEASES_BASE_URL="https://github.com/yyysuo/mosdns/releases"
+MOSDNS_PH_CONFIG_ZIP_URL="https://raw.githubusercontent.com/yyysuo/firetv/refs/heads/master/mosdnsconfigupdate/mosdns1225all.zip"
+
 MOSDNS_FLAVOR_NAME=""
 MOSDNS_RELEASE_TAG=""
 MOSDNS_ASSET_PREFIX=""
@@ -116,12 +119,21 @@ set_mosdns_flavor() {
             MOSDNS_RELEASE_TAG="$MOSDNS_STD_RELEASE_TAG"
             MOSDNS_ASSET_PREFIX="$MOSDNS_STD_ASSET_PREFIX"
             MOSDNS_CONFIG_ZIP_URL="$MOSDNS_STD_CONFIG_ZIP_URL"
+            MOSDNS_RELEASES_BASE_URL="https://github.com/jasonxtt/mosdns/releases"
             ;;
         lite)
             MOSDNS_FLAVOR_NAME="Tom魔改lite版"
             MOSDNS_RELEASE_TAG="$MOSDNS_LITE_RELEASE_TAG"
             MOSDNS_ASSET_PREFIX="$MOSDNS_LITE_ASSET_PREFIX"
             MOSDNS_CONFIG_ZIP_URL="$MOSDNS_LITE_CONFIG_ZIP_URL"
+            MOSDNS_RELEASES_BASE_URL="https://github.com/jasonxtt/mosdns/releases"
+            ;;
+        ph)
+            MOSDNS_FLAVOR_NAME="PH版"
+            MOSDNS_RELEASE_TAG=""
+            MOSDNS_ASSET_PREFIX="mosdns-"
+            MOSDNS_CONFIG_ZIP_URL="$MOSDNS_PH_CONFIG_ZIP_URL"
+            MOSDNS_RELEASES_BASE_URL="$MOSDNS_PH_RELEASES_BASE_URL"
             ;;
         *)
             red "未知的 Mosdns 安装类型：$flavor"
@@ -166,10 +178,16 @@ download_and_install_mosdns_binary() {
     local base_name
     local found_bin
 
-    [ -n "$MOSDNS_RELEASE_TAG" ] || {
-        red "未设置 mosdns release tag"
-        exit 1
-    }
+    # ph version fetches latest release tag dynamically
+    if [ -z "$MOSDNS_RELEASE_TAG" ]; then
+        white "正在获取最新 release 版本..."
+        MOSDNS_RELEASE_TAG=$(curl -fsSL --max-time 15 "https://api.github.com/repos/yyysuo/mosdns/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"//' | sed 's/".*//')
+        [ -n "$MOSDNS_RELEASE_TAG" ] || {
+            red "获取最新 release 版本失败"
+            exit 1
+        }
+        white "最新版本：${yellow}${MOSDNS_RELEASE_TAG}${reset}"
+    fi
 
     [ -n "$MOSDNS_ASSET_PREFIX" ] || {
         red "未设置 mosdns 资产前缀"
@@ -187,8 +205,10 @@ download_and_install_mosdns_binary() {
         exit 1
     }
 
+    local repo_path=$(echo "$MOSDNS_RELEASES_BASE_URL" | sed 's#https://github.com/##' | sed 's#/releases##')
+
     asset_urls=$(printf '%s' "$assets_html" \
-        | grep -oE '/jasonxtt/mosdns/releases/download/'"${MOSDNS_RELEASE_TAG}"'/[^"<> ]+' \
+        | grep -oE "/${repo_path}/releases/download/${MOSDNS_RELEASE_TAG}/[^\"<> ]+" \
         | sed 's#^#https://github.com#' \
         | sort -u)
 
@@ -406,7 +426,8 @@ install_mosdns() {
     white "当前安装版本：${yellow}${MOSDNS_FLAVOR_NAME}${reset}"
 
     while true; do
-        read -p "请输入sing-box/mihomo提供的socks5代理，例如 10.0.0.2:7890 ：" socks5_input
+        read -p "请输入sing-box/mihomo提供的socks5代理（直接回车默认 10.0.0.2:7890）：" socks5_input
+        socks5_input="${socks5_input:-10.0.0.2:7890}"
         if is_valid_host_port "$socks5_input"; then
             break
         else
@@ -415,7 +436,8 @@ install_mosdns() {
     done
 
     while true; do
-        read -p "请输入sing-box/mihomo监听的DNS端口，用于获取fakeip，例如 10.0.0.2:6666 ：" fakeip_upstream_input
+        read -p "请输入sing-box/mihomo监听的DNS端口，用于获取fakeip（直接回车默认 10.0.0.2:6666）：" fakeip_upstream_input
+        fakeip_upstream_input="${fakeip_upstream_input:-10.0.0.2:6666}"
         if is_valid_host_port "$fakeip_upstream_input"; then
             break
         else
@@ -494,7 +516,8 @@ mosdns_choose() {
     echo "=================================================================="
     echo "1. 安装Mosdns（Tom魔改版）"
     echo "2. 安装Mosdns（Tom魔改lite版）"
-    echo "3. 卸载Mosdns"
+    echo "3. 安装Mosdns（PH版）"
+    echo "4. 卸载Mosdns"
     echo -e "\t"
     echo "-. 返回上级菜单"
     echo "0. 退出脚本"
@@ -508,6 +531,9 @@ mosdns_choose() {
             install_mosdns lite
             ;;
         3)
+            install_mosdns ph
+            ;;
+        4)
             uninstall_mosdns
             ;;
         -)
