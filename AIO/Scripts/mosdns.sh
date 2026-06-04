@@ -23,11 +23,11 @@ white(){
 SCRIPT_REPO_BASE="https://raw.githubusercontent.com/jasonxtt/LinuxScripts/main"
 SERVICE_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/service/mosdns.service"
 MOSDNS_RELEASES_BASE_URL="https://github.com/jasonxtt/mosdns/releases"
-MOSDNS_STD_RELEASE_TAG="v0.4.0"
-MOSDNS_STD_ASSET_PREFIX="mosdns-0.4.0-"
+MOSDNS_STD_RELEASE_TAG=""
+MOSDNS_STD_ASSET_PREFIX=""
 MOSDNS_STD_CONFIG_ZIP_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/config/config_all.zip"
-MOSDNS_LITE_RELEASE_TAG="lite-v0.1.0"
-MOSDNS_LITE_ASSET_PREFIX="mosdns-lite-0.1.0-"
+MOSDNS_LITE_RELEASE_TAG=""
+MOSDNS_LITE_ASSET_PREFIX=""
 MOSDNS_LITE_CONFIG_ZIP_URL="https://raw.githubusercontent.com/jasonxtt/file/main/mosdns/config/config_lite_all.zip"
 
 MOSDNS_PH_RELEASES_BASE_URL="https://github.com/yyysuo/mosdns/releases"
@@ -166,6 +166,31 @@ get_mosdns_asset_candidates() {
     esac
 }
 
+fetch_latest_release_tag() {
+    local repo="$1"
+    local tag_prefix="$2"
+    local api_url="https://api.github.com/repos/${repo}/releases"
+    local releases_json
+
+    releases_json=$(curl -fsSL --max-time 15 "$api_url" 2>/dev/null) || return 1
+
+    if [ -n "$tag_prefix" ]; then
+        printf '%s' "$releases_json" \
+            | grep '"tag_name"' \
+            | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"//' \
+            | sed 's/".*//' \
+            | grep "^${tag_prefix}" \
+            | head -n 1
+        return
+    fi
+
+    printf '%s' "$releases_json" \
+        | grep '"tag_name"' \
+        | head -n 1 \
+        | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"//' \
+        | sed 's/".*//'
+}
+
 download_and_install_mosdns_binary() {
     local tmp_dir="/tmp/mosdns-bin-install"
     local assets_html
@@ -178,10 +203,18 @@ download_and_install_mosdns_binary() {
     local base_name
     local found_bin
 
-    # ph version fetches latest release tag dynamically
+    # Standard/Lite/PH versions fetch release tags dynamically when needed.
     if [ -z "$MOSDNS_RELEASE_TAG" ]; then
         white "正在获取最新 release 版本..."
-        MOSDNS_RELEASE_TAG=$(curl -fsSL --max-time 15 "https://api.github.com/repos/yyysuo/mosdns/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"//' | sed 's/".*//')
+        if [ "$MOSDNS_FLAVOR_NAME" = "Tom魔改版" ]; then
+            MOSDNS_RELEASE_TAG=$(fetch_latest_release_tag "jasonxtt/mosdns" "v")
+            [ -n "$MOSDNS_RELEASE_TAG" ] && MOSDNS_ASSET_PREFIX="mosdns-${MOSDNS_RELEASE_TAG#v}-"
+        elif [ "$MOSDNS_FLAVOR_NAME" = "Tom魔改lite版" ]; then
+            MOSDNS_RELEASE_TAG=$(fetch_latest_release_tag "jasonxtt/mosdns" "lite-v")
+            [ -n "$MOSDNS_RELEASE_TAG" ] && MOSDNS_ASSET_PREFIX="mosdns-lite-${MOSDNS_RELEASE_TAG#lite-v}-"
+        else
+            MOSDNS_RELEASE_TAG=$(fetch_latest_release_tag "yyysuo/mosdns")
+        fi
         [ -n "$MOSDNS_RELEASE_TAG" ] || {
             red "获取最新 release 版本失败"
             exit 1
