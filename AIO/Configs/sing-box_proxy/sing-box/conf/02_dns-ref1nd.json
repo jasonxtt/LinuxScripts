@@ -1,0 +1,98 @@
+{
+  "dns": {
+    "independent_cache": true,
+    "servers": [
+      {
+        "tag": "remote-dns",
+        "type": "tls",
+        "server": "1.1.1.1"
+      },
+      {
+        "tag": "local-dns",
+        "type": "tls",
+        "server": "223.5.5.5"
+      },
+      {
+        "tag": "fakeip-dns",
+        "type": "fakeip",
+        "inet4_range": "28.0.0.0/8",
+        "inet6_range": "2001:2::/64"
+      }
+    ],
+    "rules": [
+      {
+        "inbound": "fake-in",
+        "server": "fakeip-dns",
+        "rewrite_ttl": 1
+      },
+      {
+        "query_type": [
+          "TXT",
+          "SRV",
+          "NAPTR"
+        ],
+        "action": "predefined",
+        "rcode": "NOERROR"
+      },
+      {
+        "clash_mode": "direct",
+        "server": "local-dns"
+      },
+      {
+        "clash_mode": "global",
+        "server": "fakeip-dns"
+      },
+      {
+        "rule_set": [
+          "geosite-youtube",
+          "geosite-google",
+          "geosite-telegram",
+          "geosite-github",
+          "geosite-cloudflare",
+          "geosite-netflix",
+          "geosite-facebook",
+          "geosite-instagram",
+          "geosite-tiktok",
+          "geosite-speedtest",
+          "geosite-jetbrains",
+          "geosite-spotify",
+          "geosite-geolocation-!cn"
+        ],
+        "action": "route",
+        "server": "fakeip-dns",
+        "rewrite_ttl": 1
+      },
+      {
+        "rule_set": [
+          "geosite-cn",
+          "geosite-icloud@cn",
+          "geosite-apple@cn",
+          "geosite-geolocation-cn"
+        ],
+        "server": "local-dns"
+      },
+      {
+        "domain_suffix": [
+          "edu.cn",
+          "gov.cn",
+          "mil.cn",
+          "ac.cn",
+          "com.cn",
+          "net.cn",
+          "org.cn"
+        ],
+        "server": "local-dns"
+      },
+      {
+        "query_type": [
+          "A",
+          "AAAA"
+        ],
+        "action": "route",
+        "server": "fakeip-dns",
+        "rewrite_ttl": 1
+      }
+    ],
+    "final": "remote-dns"
+  }
+}

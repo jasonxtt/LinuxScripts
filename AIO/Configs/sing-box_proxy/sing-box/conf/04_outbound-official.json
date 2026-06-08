@@ -1,0 +1,85 @@
+{
+    "outbounds": [
+        {
+            "tag": "Proxy",
+            "type": "selector",
+            "outbounds": [
+                "节点1",
+                "节点2"
+            ]
+        },
+        {
+            "tag": "节点1",
+            "type": "hysteria2",
+            "server": "www.qq.com",
+            "server_port": 53222,
+            "up_mbps": 100,
+            "down_mbps": 100,
+            "password": "12345678",
+            "tls": {
+                "enabled": true,
+                "server_name": "bing.com",
+                "insecure": true,
+                "alpn": "h3"
+            }
+        },
+        {
+            "tag": "节点2",
+            "server": "1.9.98.16",
+            "server_port": 4109,
+            "type": "vless",
+            "tcp_fast_open": true,
+            "uuid": "917d5",
+            "flow": "",
+            "packet_encoding": "xudp",
+            "tls": {
+                "enabled": true,
+                "server_name": "www.x.jp",
+                "utls": {
+                    "enabled": true,
+                    "fingerprint": "chrome"
+                },
+                "reality": {
+                    "enabled": true,
+                    "public_key": "sPE",
+                    "short_id": ""
+                }
+            },
+            "multiplex": {
+                "enabled": true,
+                "protocol": "h2mux",
+                "max_connections": 1,
+                "min_streams": 4,
+                "padding": true,
+                "brutal": {
+                    "enabled": true,
+                    "up_mbps": 1000,
+                    "down_mbps": 1000
+                }
+            }
+        },
+        {
+            "type": "selector",
+            "tag": "Final",
+            "outbounds": [
+                "Proxy"
+            ]
+        },
+        {
+            "type": "selector",
+            "tag": "GLOBAL",
+            "outbounds": [
+                "Proxy",
+                "Final"
+            ]
+        },
+        {
+            "type": "direct",
+            "tag": "direct"
+        },
+        {
+            "type": "block",
+            "tag": "block"
+        }
+    ]
+}

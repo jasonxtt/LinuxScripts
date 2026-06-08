@@ -1,0 +1,244 @@
+{
+  "providers": [
+    {
+      "type": "remote",
+      "tag": "🛫 机场",
+      "url": "机场订阅",
+      "update_interval": "24h",
+      "download_detour": "direct"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "selector",
+      "tag": "Proxy",
+      "outbounds": [
+        "🔄 自动选择",
+        "♻️ 手动选择",
+        "🇭🇰 香港节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 狮城节点",
+        "✨台湾节点",
+        "🇺🇲 美国节点",
+        "🇭🇰 香港节点-urltest",
+        "🇯🇵 日本节点-urltest",
+        "🇸🇬 狮城节点-urltest",
+        "✨台湾节点-urltest",
+        "🇺🇲 美国节点-urltest"
+      ]
+    },
+    {
+      "type": "selector",
+      "tag": "YouTube",
+      "outbounds": [
+        "Proxy",
+        "🔄 自动选择",
+        "♻️ 手动选择",
+        "🇭🇰 香港节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 狮城节点",
+        "✨台湾节点",
+        "🇺🇲 美国节点",
+        "🇭🇰 香港节点-urltest",
+        "🇯🇵 日本节点-urltest",
+        "🇸🇬 狮城节点-urltest",
+        "✨台湾节点-urltest",
+        "🇺🇲 美国节点-urltest"
+      ]
+    },
+    {
+      "type": "selector",
+      "tag": "Telegram",
+      "outbounds": [
+        "Proxy",
+        "🔄 自动选择",
+        "♻️ 手动选择",
+        "🇭🇰 香港节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 狮城节点",
+        "✨台湾节点",
+        "🇺🇲 美国节点",
+        "🇭🇰 香港节点-urltest",
+        "🇯🇵 日本节点-urltest",
+        "🇸🇬 狮城节点-urltest",
+        "✨台湾节点-urltest",
+        "🇺🇲 美国节点-urltest"
+      ]
+    },
+    {
+      "type": "selector",
+      "tag": "AI",
+      "outbounds": [
+        "Proxy",
+        "🔄 自动选择",
+        "♻️ 手动选择",
+        "🇭🇰 香港节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 狮城节点",
+        "✨台湾节点",
+        "🇺🇲 美国节点",
+        "🇭🇰 香港节点-urltest",
+        "🇯🇵 日本节点-urltest",
+        "🇸🇬 狮城节点-urltest",
+        "✨台湾节点-urltest",
+        "🇺🇲 美国节点-urltest"
+      ]
+    },
+    {
+      "type": "selector",
+      "tag": "GitHub",
+      "outbounds": [
+        "Proxy",
+        "🔄 自动选择",
+        "♻️ 手动选择",
+        "🇭🇰 香港节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 狮城节点",
+        "✨台湾节点",
+        "🇺🇲 美国节点",
+        "🇭🇰 香港节点-urltest",
+        "🇯🇵 日本节点-urltest",
+        "🇸🇬 狮城节点-urltest",
+        "✨台湾节点-urltest",
+        "🇺🇲 美国节点-urltest"
+      ]
+    },
+    {
+      "type": "selector",
+      "tag": "Speedtest",
+      "outbounds": [
+        "Proxy",
+        "🔄 自动选择",
+        "♻️ 手动选择",
+        "🇭🇰 香港节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 狮城节点",
+        "✨台湾节点",
+        "🇺🇲 美国节点",
+        "🇭🇰 香港节点-urltest",
+        "🇯🇵 日本节点-urltest",
+        "🇸🇬 狮城节点-urltest",
+        "✨台湾节点-urltest",
+        "🇺🇲 美国节点-urltest"
+      ]
+    },
+    {
+      "type": "selector",
+      "tag": "♻️ 手动选择",
+      "providers": [
+        "🛫 机场"
+      ],
+      "exclude": "Premium"
+    },
+    {
+      "type": "urltest",
+      "tag": "🔄 自动选择",
+      "providers": [
+        "🛫 机场"
+      ],
+      "idle_timeout": "30001h",
+      "interval": "30000h",
+      "tolerance": 50
+    },
+    {
+      "type": "selector",
+      "tag": "🇭🇰 香港节点",
+      "use_all_providers": true,
+      "include": "(?i)香港|HK|hk|Hong Kong|HongKong|hongkong"
+    },
+    {
+      "type": "selector",
+      "tag": "🇯🇵 日本节点",
+      "use_all_providers": true,
+      "include": "(?i)日本|东京|大阪|[^-]日|JP|Japan"
+    },
+    {
+      "type": "selector",
+      "tag": "🇸🇬 狮城节点",
+      "use_all_providers": true,
+      "include": "(?i)新加坡|坡|狮城|SG|Singapore"
+    },
+    {
+      "type": "selector",
+      "tag": "✨台湾节点",
+      "use_all_providers": true,
+      "include": "(?i)🇹🇼|TW|tw|台湾|臺灣|台|Taiwan"
+    },
+    {
+      "type": "selector",
+      "tag": "🇺🇲 美国节点",
+      "use_all_providers": true,
+      "include": "(?i)美|达拉斯|洛杉矶|圣何塞|US|United States"
+    },
+    {
+      "type": "urltest",
+      "tag": "🇭🇰 香港节点-urltest",
+      "use_all_providers": true,
+      "include": "(?i)香港|HK|hk|Hong Kong|HongKong|hongkong"
+    },
+    {
+      "type": "urltest",
+      "tag": "🇯🇵 日本节点-urltest",
+      "use_all_providers": true,
+      "include": "(?i)日本|东京|大阪|[^-]日|JP|Japan"
+    },
+    {
+      "type": "urltest",
+      "tag": "🇸🇬 狮城节点-urltest",
+      "use_all_providers": true,
+      "include": "(?i)新加坡|坡|狮城|SG|Singapore"
+    },
+    {
+      "type": "urltest",
+      "tag": "✨台湾节点-urltest",
+      "use_all_providers": true,
+      "include": "(?i)🇹🇼|TW|tw|台湾|臺灣|台|Taiwan"
+    },
+    {
+      "type": "urltest",
+      "tag": "🇺🇲 美国节点-urltest",
+      "use_all_providers": true,
+      "include": "(?i)美|达拉斯|洛杉矶|圣何塞|US|United States"
+    },
+    {
+      "type": "selector",
+      "tag": "Final",
+      "outbounds": [
+        "Proxy"
+      ]
+    },
+    {
+      "type": "selector",
+      "tag": "GLOBAL",
+      "outbounds": [
+        "Proxy",
+        "YouTube",
+        "Telegram",
+        "AI",
+        "GitHub",
+        "Speedtest",
+        "🔄 自动选择",
+        "♻️ 手动选择",
+        "🇭🇰 香港节点",
+        "🇯🇵 日本节点",
+        "🇸🇬 狮城节点",
+        "✨台湾节点",
+        "🇺🇲 美国节点",
+        "🇭🇰 香港节点-urltest",
+        "🇯🇵 日本节点-urltest",
+        "🇸🇬 狮城节点-urltest",
+        "✨台湾节点-urltest",
+        "🇺🇲 美国节点-urltest",
+        "Final"
+      ]
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ]
+}
