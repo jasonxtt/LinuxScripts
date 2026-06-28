@@ -523,6 +523,152 @@ install_mosdns() {
     systemctl status mosdns --no-pager
 }
 
+apply_custom_overrides() {
+    local socks5_input="$1"
+    local fakeip_upstream_input="$2"
+    local ecs_ipv4="$3"
+    local dns_routing_mode="${4:-A}"
+    local config_overrides="/cus/mosdns/config_overrides.json"
+    local upstream_overrides="/cus/mosdns/upstream_overrides.json"
+    local switch17_file="/cus/mosdns/rule/switch17.txt"
+    local socks_escaped
+    local ecs_escaped
+    local upstream_addr
+
+    [ -f "$config_overrides" ] || config_overrides="/cus/mosdns/webinfo/config_overrides.json"
+    [ -f "$config_overrides" ] || {
+        red "未找到 config_overrides.json"
+        exit 1
+    }
+
+    [ -f "$upstream_overrides" ] || upstream_overrides="/cus/mosdns/webinfo/upstream_overrides.json"
+    [ -f "$upstream_overrides" ] || {
+        red "未找到 upstream_overrides.json"
+        exit 1
+    }
+
+    socks_escaped=$(escape_sed_replacement "$socks5_input")
+    sed -i -E "s#(\"socks5\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")#\\1${socks_escaped}\\2#" "$config_overrides"
+
+    if [ -n "$ecs_ipv4" ]; then
+        ecs_escaped=$(escape_sed_replacement "$ecs_ipv4")
+        sed -i -E "s#(\"ecs\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")#\\1${ecs_escaped}\\2#" "$config_overrides"
+    fi
+
+    mkdir -p "$(dirname "$switch17_file")"
+    printf '%s\n' "$dns_routing_mode" > "$switch17_file"
+
+    if [ "$dns_routing_mode" = "A" ] && [ -n "$fakeip_upstream_input" ]; then
+        upstream_addr=$(escape_sed_replacement "$fakeip_upstream_input")
+        UPSTREAM_ADDR="$upstream_addr" perl -0pi -e 's#("nocnfake"\s*:\s*\[\s*\{.*?"addr"\s*:\s*")udp://[^"]*(")#${1}udp://$ENV{UPSTREAM_ADDR}${2}#s' "$upstream_overrides"
+    fi
+}
+
+install_mosdns() {
+    local flavor="$1"
+    local socks5_input
+    local fakeip_upstream_input=""
+    local ecs_ipv4
+    local dns_routing_mode="A"
+    local dns_routing_mode_label="FakeIP 分流"
+    local dns_mode_choice
+
+    set_mosdns_flavor "$flavor"
+    white "当前安装版本：${yellow}${MOSDNS_FLAVOR_NAME}${reset}"
+
+    while true; do
+        read -p "请输入 socks5 代理（默认 10.0.0.2:7890）：" socks5_input
+        socks5_input="${socks5_input:-10.0.0.2:7890}"
+        if is_valid_host_port "$socks5_input"; then
+            break
+        else
+            red "输入格式无效，请输入 host:port，例如 10.0.0.2:7890"
+        fi
+    done
+
+    while true; do
+        echo
+        white "请选择 DNS 分流模式："
+        echo "1. FakeIP 分流（默认，需要 sing-box/mihomo FakeIP DNS 上游）"
+        echo "2. RealIP 分流（redir-host/realip，不需要 FakeIP 上游，国外域名使用“国外代理上游”）"
+        read -p "请输入选项 [1-2，默认 1]：" dns_mode_choice
+        dns_mode_choice="${dns_mode_choice:-1}"
+        case "$dns_mode_choice" in
+            1)
+                dns_routing_mode="A"
+                dns_routing_mode_label="FakeIP 分流"
+                break
+                ;;
+            2)
+                dns_routing_mode="B"
+                dns_routing_mode_label="RealIP 分流"
+                break
+                ;;
+            *)
+                red "请输入 1 或 2"
+                ;;
+        esac
+    done
+
+    if [ "$dns_routing_mode" = "A" ]; then
+        while true; do
+            read -p "请输入 fakeip DNS 上游地址（默认 10.0.0.2:6666）：" fakeip_upstream_input
+            fakeip_upstream_input="${fakeip_upstream_input:-10.0.0.2:6666}"
+            if is_valid_host_port "$fakeip_upstream_input"; then
+                break
+            else
+                red "输入格式无效，请输入 host:port，例如 10.0.0.2:6666"
+            fi
+        done
+    fi
+
+    install_dependencies
+
+    white "正在获取公网 IPv4（依次尝试 3 个源）..."
+    ecs_ipv4=$(get_public_ipv4) || ecs_ipv4=""
+    if [ -n "$ecs_ipv4" ]; then
+        white "公网 IPv4 检测结果：${yellow}${ecs_ipv4}${reset}"
+    else
+        red "公网 IPv4 获取失败，稍后你仍可在 WebUI 中手动填写 ECS"
+    fi
+
+    setup_systemd_service
+    download_and_install_mosdns_binary
+    download_and_prepare_config
+    apply_custom_overrides "$socks5_input" "$fakeip_upstream_input" "$ecs_ipv4" "$dns_routing_mode"
+    release_port_53
+
+    white "启动 mosdns 服务..."
+    systemctl restart mosdns.service || {
+        red "启动 mosdns 失败，请执行 systemctl status mosdns 查看日志"
+        exit 1
+    }
+
+    if ! systemctl is-active --quiet mosdns.service; then
+        red "mosdns 服务未运行，请执行 systemctl status mosdns 查看日志"
+        exit 1
+    fi
+
+    rm -rf /mnt/mosdns.sh
+    green "Mosdns（${MOSDNS_FLAVOR_NAME}）安装完成"
+    echo
+    echo -e "运行目录：${yellow}/cus/mosdns${reset}"
+    echo -e "socks5: ${yellow}${socks5_input}${reset}"
+    echo -e "DNS 分流模式: ${yellow}${dns_routing_mode_label}${reset}"
+    if [ "$dns_routing_mode" = "A" ]; then
+        echo -e "fakeip 上游: ${yellow}udp://${fakeip_upstream_input}${reset}"
+    else
+        echo -e "fakeip 上游: ${yellow}已跳过（RealIP 模式）${reset}"
+    fi
+    if [ -n "$ecs_ipv4" ]; then
+        echo -e "ecs: ${yellow}${ecs_ipv4}${reset}"
+    else
+        echo -e "\e[1m\e[31mECS 设置失败，请前往 UI 手动设置 ECS IP\e[0m"
+    fi
+    echo
+    systemctl status mosdns --no-pager || true
+}
+
 uninstall_mosdns() {
     white "停止并卸载 Mosdns..."
 
