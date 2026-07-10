@@ -37,6 +37,9 @@ MOSDNS_FLAVOR_NAME=""
 MOSDNS_RELEASE_TAG=""
 MOSDNS_ASSET_PREFIX=""
 MOSDNS_CONFIG_ZIP_URL=""
+INIT_SYSTEM=""
+SYSTEMD_SERVICE_FILE="/etc/systemd/system/mosdns.service"
+OPENRC_SERVICE_FILE="/etc/init.d/mosdns"
 
 is_valid_ipv4() {
     local ip="$1"
@@ -102,12 +105,36 @@ get_public_ipv4() {
     return 1
 }
 
+detect_init_system() {
+    if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+        INIT_SYSTEM="systemd"
+    elif command -v rc-service >/dev/null 2>&1; then
+        INIT_SYSTEM="openrc"
+    else
+        red "当前系统既未检测到 systemd，也未检测到 OpenRC"
+        exit 1
+    fi
+}
+
 install_dependencies() {
     white "开始安装依赖..."
-    apt-get update -y && apt-get install -y curl wget unzip perl ca-certificates || {
-        red "依赖安装失败"
+
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get update -y && apt-get install -y curl wget unzip perl ca-certificates || {
+            red "依赖安装失败"
+            exit 1
+        }
+    elif command -v apk >/dev/null 2>&1; then
+        apk update && apk add --no-cache bash curl wget unzip perl ca-certificates openrc || {
+            red "依赖安装失败"
+            exit 1
+        }
+    else
+        red "当前系统不支持 apt-get 或 apk，无法自动安装依赖"
         exit 1
-    }
+    fi
+
+    detect_init_system
 }
 
 set_mosdns_flavor() {
@@ -425,28 +452,73 @@ apply_custom_overrides() {
     green "配置覆盖已完成"
 }
 
-setup_systemd_service() {
-    white "下载并安装 mosdns systemd 服务文件..."
-    curl -fsSL "$SERVICE_URL" -o /etc/systemd/system/mosdns.service || {
-        red "下载 mosdns.service 失败"
-        exit 1
-    }
+setup_mosdns_service() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        white "下载并安装 mosdns systemd 服务文件..."
+        curl -fsSL "$SERVICE_URL" -o "$SYSTEMD_SERVICE_FILE" || {
+            red "下载 mosdns.service 失败"
+            exit 1
+        }
+        systemctl daemon-reload || {
+            red "systemd 重载失败"
+            exit 1
+        }
+        systemctl enable mosdns.service || {
+            red "设置开机启动失败"
+            exit 1
+        }
+    else
+        white "生成并安装 mosdns OpenRC 服务文件..."
+        cat > "$OPENRC_SERVICE_FILE" <<'EOF'
+#!/sbin/openrc-run
+name="mosdns"
+description="MosDNS service"
+command="/usr/local/bin/mosdns"
+command_args="start -d /cus/mosdns -c /cus/mosdns/config_custom.yaml"
+command_background="yes"
+pidfile="/run/mosdns.pid"
+output_log="/var/log/mosdns.log"
+error_log="/var/log/mosdns.log"
+respawn_delay=120
 
-    systemctl daemon-reload || {
-        red "systemd 重载失败"
-        exit 1
-    }
+start_pre() {
+    checkpath --file --mode 0644 "$output_log"
+}
 
-    systemctl enable mosdns.service || {
-        red "设置开机启动失败"
-        exit 1
-    }
+depend() {
+    need net
+}
+EOF
+        chmod 0755 "$OPENRC_SERVICE_FILE"
+        rc-update add mosdns default
+    fi
 }
 
 release_port_53() {
     white "解除系统 53 端口占用..."
-    sed -i.bak -E 's/^\s*#?\s*DNSStubListener\s*=.*/DNSStubListener=no/' /etc/systemd/resolved.conf
-    systemctl reload-or-restart systemd-resolved || true
+    if [ "$INIT_SYSTEM" = "systemd" ] && [ -f /etc/systemd/resolved.conf ]; then
+        sed -i.bak -E 's/^\s*#?\s*DNSStubListener\s*=.*/DNSStubListener=no/' /etc/systemd/resolved.conf
+        systemctl reload-or-restart systemd-resolved || true
+    fi
+}
+
+start_mosdns_service() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl restart mosdns.service
+        systemctl is-active --quiet mosdns.service
+    else
+        rc-service mosdns restart
+        rc-service mosdns status >/dev/null 2>&1
+    fi
+}
+
+show_mosdns_status() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl status mosdns --no-pager || true
+    else
+        rc-service mosdns status || true
+        [ -f /var/log/mosdns.log ] && tail -n 30 /var/log/mosdns.log || true
+    fi
 }
 
 install_mosdns() {
@@ -491,20 +563,16 @@ install_mosdns() {
         red "自动获取公网 IPv4 失败，将跳过 ECS 自动写入"
     fi
 
-    setup_systemd_service
+    setup_mosdns_service
     download_and_install_mosdns_binary
     download_and_prepare_config
     apply_custom_overrides "$socks5_input" "$fakeip_upstream_input" "$ecs_ipv4"
     release_port_53
 
     white "启动 mosdns 服务..."
-    systemctl restart mosdns.service || {
-        red "mosdns 启动失败"
-        exit 1
-    }
-
-    if ! systemctl is-active --quiet mosdns.service; then
-        red "mosdns 服务未运行，请执行 systemctl status mosdns 查看日志"
+    if ! start_mosdns_service; then
+        red "mosdns 服务启动失败，请检查服务状态和日志"
+        show_mosdns_status
         exit 1
     fi
 
@@ -520,7 +588,7 @@ install_mosdns() {
         echo -e "\e[1m\e[31mECS 设置失败，请前往 UI 手动设置 ECS IP\e[0m"
     fi
     echo "=================================================================="
-    systemctl status mosdns --no-pager
+    show_mosdns_status
 }
 
 apply_custom_overrides() {
@@ -632,20 +700,16 @@ install_mosdns() {
         red "公网 IPv4 获取失败，稍后你仍可在 WebUI 中手动填写 ECS"
     fi
 
-    setup_systemd_service
+    setup_mosdns_service
     download_and_install_mosdns_binary
     download_and_prepare_config
     apply_custom_overrides "$socks5_input" "$fakeip_upstream_input" "$ecs_ipv4" "$dns_routing_mode"
     release_port_53
 
     white "启动 mosdns 服务..."
-    systemctl restart mosdns.service || {
-        red "启动 mosdns 失败，请执行 systemctl status mosdns 查看日志"
-        exit 1
-    }
-
-    if ! systemctl is-active --quiet mosdns.service; then
-        red "mosdns 服务未运行，请执行 systemctl status mosdns 查看日志"
+    if ! start_mosdns_service; then
+        red "mosdns 服务启动失败，请检查服务状态和日志"
+        show_mosdns_status
         exit 1
     fi
 
@@ -666,21 +730,30 @@ install_mosdns() {
         echo -e "\e[1m\e[31mECS 设置失败，请前往 UI 手动设置 ECS IP\e[0m"
     fi
     echo
-    systemctl status mosdns --no-pager || true
+    show_mosdns_status
 }
 
 uninstall_mosdns() {
     white "停止并卸载 Mosdns..."
 
-    systemctl stop mosdns.service 2>/dev/null || true
-    systemctl disable mosdns.service 2>/dev/null || true
+    detect_init_system
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl stop mosdns.service 2>/dev/null || true
+        systemctl disable mosdns.service 2>/dev/null || true
+    else
+        rc-service mosdns stop 2>/dev/null || true
+        rc-update del mosdns default 2>/dev/null || true
+    fi
 
-    rm -f /etc/systemd/system/mosdns.service
+    rm -f "$SYSTEMD_SERVICE_FILE"
+    rm -f "$OPENRC_SERVICE_FILE"
     rm -f /usr/local/bin/mosdns
     rm -rf /cus/mosdns
 
-    systemctl daemon-reload || true
-    systemctl reset-failed || true
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl daemon-reload || true
+        systemctl reset-failed || true
+    fi
 
     rm -rf /mnt/mosdns.sh
     green "Mosdns 已卸载（service、二进制、配置目录均已删除）"

@@ -21,7 +21,11 @@ TARGET_CONF_DIR="${TARGET_CONFIG_DIR}/conf"
 TARGET_RULES_DIR="${TARGET_CONFIG_DIR}/rules"
 SERVICE_FILE="/etc/systemd/system/sing-box.service"
 TPROXY_SERVICE_FILE="/etc/systemd/system/tproxy-router.service"
+OPENRC_SERVICE_FILE="/etc/init.d/sing-box"
+OPENRC_TPROXY_SERVICE_FILE="/etc/init.d/tproxy-router"
+OPENRC_NFTABLES_CONF="/etc/conf.d/nftables"
 NFTABLES_FILE="/etc/nftables.conf"
+INIT_SYSTEM=""
 STATE_DIR="/var/lib/linuxscripts-singbox-proxy"
 SYSCTL_PROXY_FILE="/etc/sysctl.d/99-linuxscripts-singbox-proxy.conf"
 WORK_DIR=""
@@ -118,10 +122,32 @@ detect_arch() {
     esac
 }
 
+detect_init_system() {
+    if command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]; then
+        INIT_SYSTEM="systemd"
+    elif command -v rc-service >/dev/null 2>&1; then
+        INIT_SYSTEM="openrc"
+    else
+        red "当前系统既未检测到 systemd，也未检测到 OpenRC"
+        cleanup_and_exit 1
+    fi
+}
+
 install_dependencies() {
     white "开始安装透明代理所需依赖..."
-    apt-get update
-    apt-get install -y curl wget unzip jq nftables
+
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get update
+        apt-get install -y curl wget unzip jq nftables iproute2 ca-certificates
+    elif command -v apk >/dev/null 2>&1; then
+        apk update
+        apk add --no-cache bash curl wget unzip jq nftables iproute2 ca-certificates openrc
+    else
+        red "当前系统不支持 apt-get 或 apk，无法自动安装依赖"
+        cleanup_and_exit 1
+    fi
+
+    detect_init_system
 }
 
 save_file_backup_once() {
@@ -145,7 +171,11 @@ configure_ip_forward() {
     cat > "$SYSCTL_PROXY_FILE" <<'EOF'
 net.ipv4.ip_forward=1
 EOF
-    sysctl --system >/dev/null
+    if [[ "$INIT_SYSTEM" == "openrc" ]]; then
+        sysctl -w net.ipv4.ip_forward=1 >/dev/null
+    else
+        sysctl --system >/dev/null
+    fi
 }
 
 configure_systemd_resolved() {
@@ -172,7 +202,17 @@ configure_systemd_resolved() {
 restore_system_changes() {
     if [[ -f "$SYSCTL_PROXY_FILE" ]]; then
         rm -f "$SYSCTL_PROXY_FILE"
-        sysctl --system >/dev/null 2>&1 || true
+        if [[ "$INIT_SYSTEM" == "openrc" ]]; then
+            sysctl -w net.ipv4.ip_forward=0 >/dev/null 2>&1 || true
+        else
+            sysctl --system >/dev/null 2>&1 || true
+        fi
+    fi
+
+    if [[ -f "${STATE_DIR}/nftables.confd.bak" ]]; then
+        cp -a "${STATE_DIR}/nftables.confd.bak" "$OPENRC_NFTABLES_CONF"
+    elif [[ "$INIT_SYSTEM" == "openrc" ]]; then
+        rm -f "$OPENRC_NFTABLES_CONF"
     fi
 
     if [[ -f "${STATE_DIR}/resolved.conf.bak" ]]; then
@@ -360,9 +400,73 @@ install_proxy_files() {
     rm -rf "$TARGET_CONFIG_DIR"
     mkdir -p "$TARGET_CONF_DIR"
 
-    install -m 0644 "${asset_root}/sing-box.service" "$SERVICE_FILE"
-    install -m 0644 "${asset_root}/tproxy-router.service" "$TPROXY_SERVICE_FILE"
+    if [[ "$INIT_SYSTEM" == "systemd" ]]; then
+        install -m 0644 "${asset_root}/sing-box.service" "$SERVICE_FILE"
+        install -m 0644 "${asset_root}/tproxy-router.service" "$TPROXY_SERVICE_FILE"
+    else
+        cat > "$OPENRC_SERVICE_FILE" <<'EOF'
+#!/sbin/openrc-run
+name="sing-box"
+description="sing-box service"
+command="/usr/local/bin/sing-box"
+command_args="run -C /usr/local/etc/sing-box/conf"
+command_background="yes"
+pidfile="/run/sing-box.pid"
+output_log="/var/log/sing-box.log"
+error_log="/var/log/sing-box.log"
+respawn_delay=1800
+
+start_pre() {
+    checkpath --file --mode 0644 "$output_log"
+}
+
+depend() {
+    need net
+    after tproxy-router nftables
+}
+EOF
+        chmod 0755 "$OPENRC_SERVICE_FILE"
+
+        cat > "$OPENRC_TPROXY_SERVICE_FILE" <<'EOF'
+#!/sbin/openrc-run
+name="tproxy-router"
+description="sing-box TProxy routes"
+
+start() {
+    ebegin "Adding sing-box TProxy routes"
+    ip rule add fwmark 1 table 100 2>/dev/null || true
+    ip route add local default dev lo table 100 2>/dev/null || true
+    ip -6 rule add fwmark 1 table 101 2>/dev/null || true
+    ip -6 route add local ::/0 dev lo table 101 2>/dev/null || true
+    eend 0
+}
+
+stop() {
+    ebegin "Removing sing-box TProxy routes"
+    ip rule del fwmark 1 table 100 2>/dev/null || true
+    ip route del local default dev lo table 100 2>/dev/null || true
+    ip -6 rule del fwmark 1 table 101 2>/dev/null || true
+    ip -6 route del local ::/0 dev lo table 101 2>/dev/null || true
+    eend 0
+}
+
+depend() {
+    need net
+}
+EOF
+        chmod 0755 "$OPENRC_TPROXY_SERVICE_FILE"
+    fi
     install -m 0644 "${asset_root}/nftables.conf" "$NFTABLES_FILE"
+    if [[ "$INIT_SYSTEM" == "openrc" ]]; then
+        save_file_backup_once "$OPENRC_NFTABLES_CONF" nftables.confd
+        mkdir -p "$(dirname "$OPENRC_NFTABLES_CONF")"
+        cat > "$OPENRC_NFTABLES_CONF" <<EOF
+rules_file="$NFTABLES_FILE"
+save_on_stop="no"
+save_objects="counters limits quotas"
+enable_forwarding="no"
+EOF
+    fi
     install -m 0755 "${asset_root}/singbox_rule_updata.sh" "$TARGET_RULE_SCRIPT"
 
     install -m 0644 "${asset_root}/sing-box/conf/00_log.json" "${TARGET_CONF_DIR}/00_log.json"
@@ -379,13 +483,23 @@ update_rule_sets() {
 }
 
 start_proxy_services() {
-    systemctl daemon-reload
-    systemctl enable --now tproxy-router
     nft flush ruleset
     nft -f "$NFTABLES_FILE"
-    systemctl enable --now nftables
-    systemctl restart nftables
-    systemctl enable --now sing-box
+
+    if [[ "$INIT_SYSTEM" == "systemd" ]]; then
+        systemctl daemon-reload
+        systemctl enable --now tproxy-router
+        systemctl enable --now nftables
+        systemctl restart nftables
+        systemctl enable --now sing-box
+    else
+        rc-update add tproxy-router default
+        rc-update add nftables default
+        rc-update add sing-box default
+        rc-service tproxy-router restart
+        rc-service nftables restart
+        rc-service sing-box restart
+    fi
 }
 
 install_proxy_variant() {
@@ -425,9 +539,19 @@ EOF
 uninstall_proxy() {
     white "开始卸载 sing-box 透明代理..."
 
-    systemctl disable --now sing-box >/dev/null 2>&1 || true
-    systemctl disable --now tproxy-router >/dev/null 2>&1 || true
-    systemctl disable --now nftables >/dev/null 2>&1 || true
+    detect_init_system
+    if [[ "$INIT_SYSTEM" == "systemd" ]]; then
+        systemctl disable --now sing-box >/dev/null 2>&1 || true
+        systemctl disable --now tproxy-router >/dev/null 2>&1 || true
+        systemctl disable --now nftables >/dev/null 2>&1 || true
+    else
+        rc-service sing-box stop >/dev/null 2>&1 || true
+        rc-service tproxy-router stop >/dev/null 2>&1 || true
+        rc-service nftables stop >/dev/null 2>&1 || true
+        rc-update del sing-box default >/dev/null 2>&1 || true
+        rc-update del tproxy-router default >/dev/null 2>&1 || true
+        rc-update del nftables default >/dev/null 2>&1 || true
+    fi
 
     nft flush ruleset >/dev/null 2>&1 || true
     write_empty_nftables_file
@@ -437,10 +561,14 @@ uninstall_proxy() {
     rm -rf "$TARGET_CONFIG_DIR"
     rm -f "$SERVICE_FILE"
     rm -f "$TPROXY_SERVICE_FILE"
+    rm -f "$OPENRC_SERVICE_FILE"
+    rm -f "$OPENRC_TPROXY_SERVICE_FILE"
 
     restore_system_changes
 
-    systemctl daemon-reload
+    if [[ "$INIT_SYSTEM" == "systemd" ]]; then
+        systemctl daemon-reload
+    fi
 
     green "sing-box 已卸载完成"
 }
