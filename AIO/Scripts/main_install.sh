@@ -26,7 +26,7 @@ main() {
     echo "2. HostName"
     echo "3. 基础环境设置"
     echo "4. Sing-Box"
-    echo "5. MosDNS"
+    echo "5. AtomDNS"
     echo "6. PVE系列" 
     echo "7. brutal系列"
     echo "8. 智能家居系列"   

@@ -41,6 +41,12 @@ INIT_SYSTEM=""
 SYSTEMD_SERVICE_FILE="/etc/systemd/system/mosdns.service"
 OPENRC_SERVICE_FILE="/etc/init.d/mosdns"
 
+ATOMDNS_RELEASE_URL="https://github.com/jasonxtt/atomdns/releases/latest/download"
+ATOMDNS_BIN="/usr/local/bin/atomdns"
+ATOMDNS_DIR="/usr/local/etc/atomdns"
+ATOMDNS_SYSTEMD_SERVICE_FILE="/etc/systemd/system/atomdns.service"
+ATOMDNS_OPENRC_SERVICE_FILE="/etc/init.d/atomdns"
+
 is_valid_ipv4() {
     local ip="$1"
     local octet
@@ -417,41 +423,6 @@ download_and_prepare_config() {
     green "${MOSDNS_FLAVOR_NAME} 配置文件已部署到 /cus/mosdns"
 }
 
-apply_custom_overrides() {
-    local socks5_input="$1"
-    local fakeip_upstream_input="$2"
-    local ecs_ipv4="$3"
-    local config_overrides="/cus/mosdns/config_overrides.json"
-    local upstream_overrides="/cus/mosdns/upstream_overrides.json"
-    local socks_escaped
-    local ecs_escaped
-    local upstream_addr
-
-    [ -f "$config_overrides" ] || config_overrides="/cus/mosdns/webinfo/config_overrides.json"
-    [ -f "$config_overrides" ] || {
-        red "未找到 $config_overrides"
-        exit 1
-    }
-
-    [ -f "$upstream_overrides" ] || upstream_overrides="/cus/mosdns/webinfo/upstream_overrides.json"
-    [ -f "$upstream_overrides" ] || {
-        red "未找到 $upstream_overrides"
-        exit 1
-    }
-
-    socks_escaped=$(escape_sed_replacement "$socks5_input")
-    upstream_addr=$(escape_sed_replacement "$fakeip_upstream_input")
-
-    sed -i -E "s#(\"socks5\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")#\\1${socks_escaped}\\2#" "$config_overrides"
-    if [ -n "$ecs_ipv4" ]; then
-        ecs_escaped=$(escape_sed_replacement "$ecs_ipv4")
-        sed -i -E "s#(\"ecs\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")#\\1${ecs_escaped}\\2#" "$config_overrides"
-    fi
-    perl -0777 -i -pe "s#(\"nocnfake\"\\s*:\\s*\\[\\s*\\{.*?\"tag\"\\s*:\\s*\"sing-box\".*?\"addr\"\\s*:\\s*\")udp://[^\"]*(\")#\\1udp://${upstream_addr}\\2#s" "$upstream_overrides"
-
-    green "配置覆盖已完成"
-}
-
 setup_mosdns_service() {
     if [ "$INIT_SYSTEM" = "systemd" ]; then
         white "下载并安装 mosdns systemd 服务文件..."
@@ -519,76 +490,6 @@ show_mosdns_status() {
         rc-service mosdns status || true
         [ -f /var/log/mosdns.log ] && tail -n 30 /var/log/mosdns.log || true
     fi
-}
-
-install_mosdns() {
-    local flavor="$1"
-    local socks5_input
-    local fakeip_upstream_input
-    local ecs_ipv4
-
-    set_mosdns_flavor "$flavor"
-    white "当前安装版本：${yellow}${MOSDNS_FLAVOR_NAME}${reset}"
-
-    while true; do
-        read -p "请输入sing-box/mihomo提供的socks5代理（直接回车默认 10.0.0.2:7890）：" socks5_input
-        socks5_input="${socks5_input:-10.0.0.2:7890}"
-        if is_valid_host_port "$socks5_input"; then
-            break
-        else
-            red "输入格式错误，请输入 IPv4:端口（示例 10.0.0.2:7890）"
-        fi
-    done
-
-    while true; do
-        read -p "请输入sing-box/mihomo监听的DNS端口，用于获取fakeip（直接回车默认 10.0.0.2:6666）：" fakeip_upstream_input
-        fakeip_upstream_input="${fakeip_upstream_input:-10.0.0.2:6666}"
-        if is_valid_host_port "$fakeip_upstream_input"; then
-            break
-        else
-            red "输入格式错误，请输入 IPv4:端口（示例 10.0.0.2:6666）"
-        fi
-    done
-
-    install_dependencies
-
-    white "正在获取公网 IPv4（依次尝试3个源）..."
-    ecs_ipv4=$(get_public_ipv4) || {
-        ecs_ipv4=""
-    }
-
-    if [ -n "$ecs_ipv4" ]; then
-        white "公网 IPv4 检测结果：${yellow}${ecs_ipv4}${reset}"
-    else
-        red "自动获取公网 IPv4 失败，将跳过 ECS 自动写入"
-    fi
-
-    setup_mosdns_service
-    download_and_install_mosdns_binary
-    download_and_prepare_config
-    apply_custom_overrides "$socks5_input" "$fakeip_upstream_input" "$ecs_ipv4"
-    release_port_53
-
-    white "启动 mosdns 服务..."
-    if ! start_mosdns_service; then
-        red "mosdns 服务启动失败，请检查服务状态和日志"
-        show_mosdns_status
-        exit 1
-    fi
-
-    rm -rf /mnt/mosdns.sh
-    green "Mosdns（${MOSDNS_FLAVOR_NAME}）安装完成"
-    echo "=================================================================="
-    echo -e "运行目录：${yellow}/cus/mosdns${reset}"
-    echo -e "socks5: ${yellow}${socks5_input}${reset}"
-    echo -e "fakeip 上游: ${yellow}udp://${fakeip_upstream_input}${reset}"
-    if [ -n "$ecs_ipv4" ]; then
-        echo -e "ecs: ${yellow}${ecs_ipv4}${reset}"
-    else
-        echo -e "\e[1m\e[31mECS 设置失败，请前往 UI 手动设置 ECS IP\e[0m"
-    fi
-    echo "=================================================================="
-    show_mosdns_status
 }
 
 apply_custom_overrides() {
@@ -759,17 +660,298 @@ uninstall_mosdns() {
     green "Mosdns 已卸载（service、二进制、配置目录均已删除）"
 }
 
+get_atomdns_asset_name() {
+    case "$(uname -m)" in
+        x86_64|amd64)
+            # 默认非 v3，避免老CPU或虚拟机指令集不完整导致不可运行
+            echo "atomdns-linux-amd64.tar.gz"
+            ;;
+        aarch64|arm64)
+            echo "atomdns-linux-arm64.tar.gz"
+            ;;
+        armv7l|armv7|armhf)
+            echo "atomdns-linux-armv7.tar.gz"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+download_and_install_atomdns_binary() {
+    local tmp_dir
+    local asset_name
+    local expected_sha
+    local actual_sha
+    local found_bin
+
+    asset_name=$(get_atomdns_asset_name) || {
+        red "不支持的CPU架构：$(uname -m)，请手动安装 atomdns 二进制"
+        exit 1
+    }
+
+    tmp_dir=$(mktemp -d /tmp/atomdns-install.XXXXXX)
+
+    white "下载 atomdns 更新清单..."
+    wget -q -O "$tmp_dir/manifest.json" "${ATOMDNS_RELEASE_URL}/atomdns-update-manifest.json" || {
+        red "下载更新清单失败"
+        rm -rf "$tmp_dir"
+        exit 1
+    }
+    expected_sha=$(awk -v n="\"$asset_name\"" 'index($0, n) {f=1} f && /"sha256"/ {gsub(/.*"sha256"[ ]*:[ ]*"|".*/, ""); print; exit}' "$tmp_dir/manifest.json")
+    [ -n "$expected_sha" ] || {
+        red "更新清单中未找到 ${asset_name} 的 sha256"
+        rm -rf "$tmp_dir"
+        exit 1
+    }
+
+    white "下载 atomdns 资产：${yellow}${asset_name}${reset}"
+    wget -q --show-progress -O "$tmp_dir/$asset_name" "${ATOMDNS_RELEASE_URL}/${asset_name}" || {
+        red "下载 atomdns 二进制失败"
+        rm -rf "$tmp_dir"
+        exit 1
+    }
+
+    actual_sha=$(sha256sum "$tmp_dir/$asset_name" | awk '{print $1}')
+    if [ "$actual_sha" != "$expected_sha" ]; then
+        red "sha256 校验失败（期望 ${expected_sha}，实际 ${actual_sha}）"
+        rm -rf "$tmp_dir"
+        exit 1
+    fi
+
+    tar -xzf "$tmp_dir/$asset_name" -C "$tmp_dir" || {
+        red "解压 tar.gz 失败"
+        rm -rf "$tmp_dir"
+        exit 1
+    }
+
+    found_bin=$(find "$tmp_dir" -type f -name atomdns | head -n 1)
+    if [ -z "$found_bin" ]; then
+        red "未在压缩包中找到 atomdns 可执行文件"
+        rm -rf "$tmp_dir"
+        exit 1
+    fi
+
+    install -m 0755 "$found_bin" "$ATOMDNS_BIN" || {
+        red "安装 atomdns 到 /usr/local/bin 失败"
+        rm -rf "$tmp_dir"
+        exit 1
+    }
+
+    rm -rf "$tmp_dir"
+    green "atomdns 二进制安装完成：$("$ATOMDNS_BIN" version 2>/dev/null | head -n 1)"
+}
+
+download_and_prepare_atomdns_config() {
+    local tmp_dir
+
+    tmp_dir=$(mktemp -d /tmp/atomdns-config.XXXXXX)
+
+    white "下载配置包 config_rust.zip ..."
+    wget -q --show-progress -O "$tmp_dir/config_rust.zip" "${ATOMDNS_RELEASE_URL}/config_rust.zip" || {
+        red "下载配置包失败"
+        rm -rf "$tmp_dir"
+        exit 1
+    }
+
+    mkdir -p "$ATOMDNS_DIR"
+    unzip -q -o "$tmp_dir/config_rust.zip" -d "$ATOMDNS_DIR" || {
+        red "解压配置包失败"
+        rm -rf "$tmp_dir"
+        exit 1
+    }
+
+    rm -rf "$tmp_dir"
+    [ -f "$ATOMDNS_DIR/config_custom.yaml" ] || {
+        red "配置包无效（缺少 config_custom.yaml）"
+        exit 1
+    }
+    green "配置文件已部署到 ${ATOMDNS_DIR}"
+}
+
+setup_atomdns_service() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        white "安装 atomdns systemd 服务文件..."
+        cat > "$ATOMDNS_SYSTEMD_SERVICE_FILE" <<EOF
+[Unit]
+Description=AtomDNS
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=${ATOMDNS_BIN} start -d ${ATOMDNS_DIR} -c config_custom.yaml
+Restart=always
+RestartSec=5
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload || {
+            red "systemd 重载失败"
+            exit 1
+        }
+        systemctl enable atomdns.service || {
+            red "设置开机启动失败"
+            exit 1
+        }
+    else
+        white "安装 atomdns OpenRC 服务文件..."
+        cat > "$ATOMDNS_OPENRC_SERVICE_FILE" <<EOF
+#!/sbin/openrc-run
+name="atomdns"
+description="AtomDNS service"
+command="${ATOMDNS_BIN}"
+command_args="start -d ${ATOMDNS_DIR} -c config_custom.yaml"
+command_background="yes"
+pidfile="/run/atomdns.pid"
+output_log="/var/log/atomdns.log"
+error_log="/var/log/atomdns.log"
+
+start_pre() {
+    checkpath --file --mode 0644 "\$output_log"
+}
+
+depend() {
+    need net
+}
+EOF
+        chmod 0755 "$ATOMDNS_OPENRC_SERVICE_FILE"
+        rc-update add atomdns default
+    fi
+}
+
+stop_atomdns_service() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl stop atomdns.service 2>/dev/null || true
+    else
+        rc-service atomdns stop 2>/dev/null || true
+    fi
+}
+
+start_atomdns_service() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl restart atomdns.service
+        sleep 2
+        systemctl is-active --quiet atomdns.service
+    else
+        rc-service atomdns restart
+        sleep 2
+        rc-service atomdns status >/dev/null 2>&1
+    fi
+}
+
+show_atomdns_status() {
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl status atomdns --no-pager || true
+    else
+        rc-service atomdns status || true
+        [ -f /var/log/atomdns.log ] && tail -n 30 /var/log/atomdns.log || true
+    fi
+}
+
+get_local_ipv4() {
+    ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") {print $(i + 1); exit}}'
+}
+
+install_atomdns() {
+    local upgrade_only="no"
+    local local_ip
+
+    if pgrep -x mosdns >/dev/null 2>&1; then
+        red "检测到 mosdns 正在运行，会与 atomdns 争用 53 端口。请先在本菜单卸载 Mosdns（或手动停止）后再安装 AtomDNS"
+        exit 1
+    fi
+
+    install_dependencies
+
+    if [ -f "$ATOMDNS_DIR/config_custom.yaml" ]; then
+        upgrade_only="yes"
+        white "检测到已有配置 ${yellow}${ATOMDNS_DIR}${reset}，仅升级程序，配置保持不变"
+        stop_atomdns_service
+    fi
+
+    download_and_install_atomdns_binary
+    [ "$upgrade_only" = "yes" ] || download_and_prepare_atomdns_config
+    setup_atomdns_service
+
+    white "检查配置..."
+    "$ATOMDNS_BIN" check -d "$ATOMDNS_DIR" -c config_custom.yaml || {
+        red "atomdns 配置检查未通过"
+        exit 1
+    }
+
+    release_port_53
+
+    white "启动 atomdns 服务..."
+    if ! start_atomdns_service; then
+        red "atomdns 服务启动失败，请检查服务状态和日志"
+        show_atomdns_status
+        exit 1
+    fi
+
+    rm -rf /mnt/mosdns.sh
+    local_ip=$(get_local_ipv4)
+    green "AtomDNS 安装完成"
+    echo "=================================================================="
+    echo -e "程序：${yellow}${ATOMDNS_BIN}${reset}"
+    echo -e "配置目录：${yellow}${ATOMDNS_DIR}${reset}"
+    echo -e "请在浏览器打开：${yellow}http://${local_ip:-服务器IP}:9099${reset}"
+    echo "然后在 UI 中完成设置："
+    echo "  1. 上游设置：按需设置各分组的上游（FakeIP 上游默认 127.0.0.1:6666，需改成 sing-box/mihomo 的 DNS 监听地址）"
+    echo "  2. 系统设置：设置 SOCKS5 代理（默认留空即直连）"
+    echo "  3. 系统设置：设置 ECS 地址（默认 2408:8888::8）"
+    echo "=================================================================="
+    show_atomdns_status
+}
+
+uninstall_atomdns() {
+    local remove_config
+
+    white "停止并卸载 AtomDNS..."
+
+    detect_init_system
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl stop atomdns.service 2>/dev/null || true
+        systemctl disable atomdns.service 2>/dev/null || true
+    else
+        rc-service atomdns stop 2>/dev/null || true
+        rc-update del atomdns default 2>/dev/null || true
+    fi
+
+    rm -f "$ATOMDNS_SYSTEMD_SERVICE_FILE"
+    rm -f "$ATOMDNS_OPENRC_SERVICE_FILE"
+    rm -f "$ATOMDNS_BIN"
+
+    if [ "$INIT_SYSTEM" = "systemd" ]; then
+        systemctl daemon-reload || true
+        systemctl reset-failed || true
+    fi
+
+    read -p "是否同时删除配置目录 ${ATOMDNS_DIR}（设置和学习数据都会丢失）？[y/N]：" remove_config
+    if [[ "$remove_config" =~ ^[Yy]$ ]]; then
+        rm -rf "$ATOMDNS_DIR"
+        green "AtomDNS 已卸载（service、二进制、配置目录均已删除）"
+    else
+        green "AtomDNS 已卸载（配置目录 ${ATOMDNS_DIR} 已保留）"
+    fi
+
+    rm -rf /mnt/mosdns.sh
+}
+
 mosdns_choose() {
     clear
     echo "=================================================================="
-    echo -e "\t\tMosDNS 脚本 by Tom&忧郁滴飞叶"
+    echo -e "\t\tAtomDNS / MosDNS 脚本 by Tom&忧郁滴飞叶"
     echo -e "\t\n"
     echo "请选择要执行的服务："
     echo "=================================================================="
-    echo "1. 安装Mosdns（Tom魔改版）"
-    echo "2. 安装Mosdns（Tom魔改lite版）"
-    echo "3. 安装Mosdns（PH版）"
-    echo "4. 卸载Mosdns"
+    echo "1. 安装AtomDNS"
+    echo "2. 安装Mosdns（Tom魔改版）"
+    echo "3. 安装Mosdns（Tom魔改lite版）"
+    echo "4. 安装Mosdns（PH版）"
+    echo "5. 卸载Mosdns"
+    echo "6. 卸载AtomDNS"
     echo -e "\t"
     echo "-. 返回上级菜单"
     echo "0. 退出脚本"
@@ -777,16 +959,22 @@ mosdns_choose() {
 
     case "$choice" in
         1)
-            install_mosdns standard
+            install_atomdns
             ;;
         2)
-            install_mosdns lite
+            install_mosdns standard
             ;;
         3)
-            install_mosdns ph
+            install_mosdns lite
             ;;
         4)
+            install_mosdns ph
+            ;;
+        5)
             uninstall_mosdns
+            ;;
+        6)
+            uninstall_atomdns
             ;;
         -)
             white "脚本切换中，请等待..."
