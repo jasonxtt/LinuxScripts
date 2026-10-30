@@ -660,11 +660,28 @@ uninstall_mosdns() {
     green "Mosdns 已卸载（service、二进制、配置目录均已删除）"
 }
 
+atomdns_needs_musl() {
+    local ldd_out glibc_ver
+
+    ldd_out=$(ldd --version 2>&1 | head -n 1)
+    # musl 系统（Alpine 等）没有 glibc
+    if [ -f /etc/alpine-release ] || printf '%s' "$ldd_out" | grep -qi musl; then
+        return 0
+    fi
+    # glibc amd64 包要求 glibc >= 2.39，更低的系统用静态 musl 包
+    glibc_ver=$(printf '%s' "$ldd_out" | grep -oE '[0-9]+\.[0-9]+$')
+    [ -n "$glibc_ver" ] && [ "$(printf '%s\n' 2.39 "$glibc_ver" | sort -V | head -n 1)" != "2.39" ]
+}
+
 get_atomdns_asset_name() {
     case "$(uname -m)" in
         x86_64|amd64)
-            # 默认非 v3，避免老CPU或虚拟机指令集不完整导致不可运行
-            echo "atomdns-linux-amd64.tar.gz"
+            if atomdns_needs_musl; then
+                echo "atomdns-linux-amd64-musl.tar.gz"
+            else
+                # 默认非 v3，避免老CPU或虚拟机指令集不完整导致不可运行
+                echo "atomdns-linux-amd64.tar.gz"
+            fi
             ;;
         aarch64|arm64)
             echo "atomdns-linux-arm64.tar.gz"
